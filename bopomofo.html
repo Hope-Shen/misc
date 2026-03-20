@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+    <!-- Apple / iOS 專用宣告 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Android / Pixel 專用宣告：讓它變成真正的全螢幕 App -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#e0e7ff">
+    <!-- 內建 App Manifest，告訴 Pixel 這是一個獨立的 App -->
+    <link rel="manifest" href='data:application/manifest+json,{"name":"急中生字","short_name":"急中生字","start_url":".","display":"standalone","background_color":"#e0e7ff","theme_color":"#4f46e5"}'>
+
+    <title>急中生字</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .pop-animation {
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-indigo-50 to-blue-100 min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden relative">
+
+    <div class="max-w-md w-full flex flex-col items-center mt-4">
+
+        <!-- 標題區 -->
+        <div class="text-center mb-10">
+            <h1 class="text-5xl sm:text-6xl font-black text-indigo-900 mb-4 tracking-widest drop-shadow-md">急中生字</h1>
+            <p class="text-base text-indigo-700 font-bold bg-indigo-200/60 backdrop-blur-sm inline-block px-5 py-2 rounded-full shadow-sm">
+                挑戰你的極限詞彙量
+            </p>
+        </div>
+
+        <!-- 顯示注音的卡片區 -->
+        <div class="flex justify-center gap-5 sm:gap-8 mb-12 w-full px-4">
+            <div id="char1" class="flex-1 aspect-square max-w-[160px] bg-white rounded-[2rem] shadow-2xl shadow-indigo-200/50 flex items-center justify-center text-7xl sm:text-8xl font-black text-rose-500 border-4 border-white transition-all">？</div>
+            <div id="char2" class="flex-1 aspect-square max-w-[160px] bg-white rounded-[2rem] shadow-2xl shadow-indigo-200/50 flex items-center justify-center text-7xl sm:text-8xl font-black text-rose-500 border-4 border-white transition-all">？</div>
+        </div>
+
+        <!-- 主要抽題按鈕 -->
+        <button id="drawBtn" onclick="generateRandom()" class="w-[85%] bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-5 rounded-[2rem] shadow-xl shadow-indigo-400/40 text-2xl transition-all transform active:scale-95 mb-8 flex items-center justify-center gap-2">
+            <span class="text-3xl">🎲</span> 抽題目
+        </button>
+
+        <!-- 輔助工具：計時器 -->
+        <div class="w-[85%] bg-white/70 backdrop-blur-md rounded-3xl p-5 flex justify-between items-center shadow-lg border border-white/50">
+             <button onclick="startTimer()" id="timerBtn" class="bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-amber-950 font-bold py-3 px-5 rounded-2xl shadow transition-all active:scale-95 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                倒數 10 秒
+             </button>
+             <div class="flex-1 text-right">
+                 <span id="timerDisplay" class="text-4xl font-black text-slate-700 inline-block w-full">--</span>
+             </div>
+        </div>
+
+    </div>
+
+    <script>
+        // 21 個聲母
+        const bopomofo = ['ㄅ', 'ㄆ', 'ㄇ', 'ㄈ', 'ㄉ', 'ㄊ', 'ㄋ', 'ㄌ', 'ㄍ', 'ㄎ', 'ㄏ', 'ㄐ', 'ㄑ', 'ㄒ', 'ㄓ', 'ㄔ', 'ㄕ', 'ㄖ', 'ㄗ', 'ㄘ', 'ㄙ'];
+
+        let isRolling = false;
+        let timerInterval = null;
+
+        function getRandomChar() {
+            return bopomofo[Math.floor(Math.random() * bopomofo.length)];
+        }
+
+        function generateRandom() {
+            // Pixel 的高質感短震動
+            if (navigator.vibrate) navigator.vibrate(30);
+
+            if (isRolling) return;
+            isRolling = true;
+
+            const char1El = document.getElementById('char1');
+            const char2El = document.getElementById('char2');
+            const btn = document.getElementById('drawBtn');
+
+            btn.classList.add('opacity-70', 'scale-95');
+            btn.innerHTML = '<span class="text-3xl">⏳</span> 抽取中...';
+
+            char1El.classList.remove('pop-animation');
+            char2El.classList.remove('pop-animation');
+
+            let rollCount = 0;
+            const maxRolls = 15;
+            const rollSpeed = 50;
+
+            const rollInterval = setInterval(() => {
+                char1El.innerText = getRandomChar();
+                char2El.innerText = getRandomChar();
+                rollCount++;
+
+                if (rollCount >= maxRolls) {
+                    clearInterval(rollInterval);
+
+                    let finalChar1 = getRandomChar();
+                    let finalChar2 = getRandomChar();
+
+                    while (finalChar1 === finalChar2) {
+                        finalChar2 = getRandomChar();
+                    }
+
+                    char1El.innerText = finalChar1;
+                    char2El.innerText = finalChar2;
+
+                    void char1El.offsetWidth;
+
+                    char1El.classList.add('pop-animation');
+                    char2El.classList.add('pop-animation');
+
+                    btn.classList.remove('opacity-70', 'scale-95');
+                    btn.innerHTML = '<span class="text-3xl">🎲</span> 再次抽題';
+                    isRolling = false;
+
+                    resetTimer();
+
+                    // Pixel 抽出結果時的清脆雙震動
+                    if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+                }
+            }, rollSpeed);
+        }
+
+        function startTimer() {
+            if (navigator.vibrate) navigator.vibrate(30);
+            clearInterval(timerInterval);
+            let timeLeft = 10;
+            const display = document.getElementById('timerDisplay');
+
+            display.innerText = timeLeft;
+            display.classList.remove('text-red-500', 'text-slate-700');
+            display.classList.add('text-indigo-600');
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+
+                if (timeLeft > 0) {
+                    display.innerText = timeLeft;
+                    // 倒數3秒時變紅色，配合短震動警告
+                    if (timeLeft <= 3) {
+                        display.classList.remove('text-indigo-600');
+                        display.classList.add('text-red-500');
+                        if (navigator.vibrate) navigator.vibrate(20);
+                    }
+                } else {
+                    clearInterval(timerInterval);
+                    display.innerText = '時間到!';
+                    // 時間到長震動
+                    if (navigator.vibrate) navigator.vibrate([300]);
+                }
+            }, 1000);
+        }
+
+        function resetTimer() {
+             clearInterval(timerInterval);
+             const display = document.getElementById('timerDisplay');
+             display.innerText = '--';
+             display.classList.remove('text-red-500', 'text-indigo-600');
+             display.classList.add('text-slate-700');
+        }
+    </script>
+</body>
+</html>
