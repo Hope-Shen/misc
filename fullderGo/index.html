@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fullder Go 福德果 | 一條走向福德的路</title>
+  
+  <!-- 載入 React 與 ReactDOM (CDN) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- 載入 Babel -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- 載入 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- 載入 Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* 隱藏捲軸但保留捲動功能 */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 動畫定義 */
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    @keyframes fadeInScale {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
+    .animate-fade-in-scale { animation: fadeInScale 0.2s ease-out forwards; }
+    
+    body {
+      margin: 0;
+      background-color: #f3f4f6;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    .watercolor-mask {
+        mask-image: radial-gradient(circle, black 60%, transparent 100%);
+        -webkit-mask-image: radial-gradient(circle, black 60%, transparent 100%);
+    }
+
+    .img-loading {
+        filter: blur(5px);
+        transition: filter 0.3s ease;
+    }
+    .img-loaded {
+        filter: blur(0);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // --- 圖示元件 ---
+    const Icon = ({ name, className }) => {
+      useEffect(() => {
+        if (window.lucide) window.lucide.createIcons();
+      });
+      return <i data-lucide={name} className={className}></i>;
+    };
+
+    // --- 素材路徑定義 ---
+    const ASSETS = {
+      GOD_STATUE: 'a0fXaBDw.jpeg',      // 土地公聖像
+      TEMPLE_MAIN: 'F1IA36Xw.jpeg',    // 龍鳳屋頂廟宇
+      TEMPLE_IN_TEMPLE: 'wYG43xow.jpeg', // 廟中廟
+      TEMPLE_PORCH: 'YT69jwtA.jpeg',   // 廟宇長廊
+      APP_ICON: 'gemini_icon.png' // App Icon (若使用本機伺服器建議改為相對路徑，或填入絕對路徑)
+    };
+
+    // --- 圖片組件 (含錯誤處理與後備機制) ---
+    const SmartImage = ({ src, alt, className, mask = false }) => {
+        const [error, setError] = useState(false);
+        const [loaded, setLoaded] = useState(false);
+
+        if (error || !src) {
+            return (
+                <div className={`bg-stone-100 border border-stone-200 flex flex-col items-center justify-center p-4 text-stone-400 ${className}`}>
+                    <Icon name="image-off" className="w-8 h-8 mb-2 opacity-20" />
+                    <span className="text-[10px] font-medium opacity-50 text-center">需放置 {src} 於資料夾內</span>
+                </div>
+            );
+        }
+
+        return (
+            <img 
+                src={src} 
+                alt={alt} 
+                className={`${className} ${mask ? 'watercolor-mask' : ''} ${loaded ? 'img-loaded' : 'img-loading'}`}
+                onLoad={() => setLoaded(true)}
+                onError={() => setError(true)}
+            />
+        );
+    };
+
+    // --- 品牌與內容資料 ---
+    const BRAND_ABOUT = {
+      company: 'fulldergo (福德果)',
+      desc: '「Walk fullder ,where blessings grow.」\n\n一條走向福德的路，一種讓祝福在土地上結果的行走方式。當人走在土地上，福與德，會慢慢結果。我們致力於推廣徒步探訪土地公廟的行腳體驗，讓身心在自然與信仰中獲得平靜與祝福。',
+      phone: '0900-000-000', phoneRaw: '0900000000',
+      email: 'hello@fulldergo.com', address: '台灣 (Taiwan)',
+      image: ASSETS.GOD_STATUE
+    };
+
+    const BRAND_EVENTS = {
+      latest: { 
+        title: '秋收感恩行腳：土地的祝福', 
+        desc: '跟著導覽員一起走入鄉間，探訪沿途的福德宮。在秋收的季節，感謝土地一整年的庇佑，並品嚐在地農家準備的福食。', 
+        date: '2026/10/15 - 2026/10/16', 
+        img: ASSETS.TEMPLE_PORCH,
+        imgAlt: '秋收行腳活動視覺' 
+      },
+      history: [
+        { year: '2025', title: '春暖花開祈福走', desc: '百人齊聚，沿著海岸線的土地公廟徒步祈福，迎接新的一年。' },
+        { year: '2024', title: '福德果試走探勘行動', desc: '召集熱愛徒步的先鋒，完成北中南多條經典路線的探勘與紀錄。' }
+      ]
+    };
+
+    // --- 福德果 路線資料庫 (更新各路線專屬 Icon) ---
+    const FULLDER_DATA = {
+      north: {
+        id: 'north', name: '北部區域',
+        systems: [
+          {
+            id: 'n_shuangxi', name: '新北雙溪三巷', icon: 'mountain', themeColor: 'bg-emerald-800', textColor: 'text-emerald-800', lightBg: 'bg-emerald-50', buttonColor: 'bg-emerald-600',
+            image: ASSETS.TEMPLE_IN_TEMPLE,
+            overview: {
+              title: '山林間的信仰對話',
+              desc: '全程約 8.1 公里，徒步於雙溪的山林小徑，探訪多座歷史悠久的福德祠，感受山林洗禮。',
+              history: [
+                { year: '距離', title: '8.1 公里', desc: '總徒步長度 (8100公尺)' },
+                { year: '時間', title: '約 2 小時 2 分', desc: '總步行時間 (122分鐘)' },
+                { year: '落差', title: '+117m / -187m', desc: '累計爬升 117 公尺、下降 187 公尺' }
+              ]
+            },
+            lines: [
+              {
+                id: 'shuangxi_main', name: '雙溪三巷線', color: 'bg-emerald-500', lineColor: 'border-emerald-400', textColor: 'text-emerald-600',
+                stations: [
+                  { id: '01', name: '蕭家田頭土地公', enName: 'Start', isTransfer: false, desc: '起點。準備進入山林聚落。', attractions: ['前往下一站：800m，步行約 13 分鐘，下坡 23m'] },
+                  { id: '02', name: '雞母嶺福德祠', enName: 'Stop 2', isTransfer: false, desc: '古道旁的庇護所。', attractions: ['前往下一站：1300m，步行約 18 分鐘，下坡 85m'] },
+                  { id: '03', name: '打鐵寮福德廟', enName: 'Stop 3', isTransfer: false, desc: '見證早期產業發展的福德廟。', attractions: ['前往下一站：800m，步行約 14 分鐘，爬升 19m'] },
+                  { id: '04', name: '外文秀坑福德廟', enName: 'Stop 4', isTransfer: false, desc: '綠意環繞的清幽之地。', attractions: ['前往下一站：950m，步行約 15 分鐘，爬升 28m'] },
+                  { id: '05', name: '土地公嶺福德祠', enName: 'Stop 5', isTransfer: false, desc: '位於嶺頂，視野逐漸開闊。', attractions: ['前往下一站：1400m，步行約 25 分鐘，爬升 70m'] },
+                  { id: '06', name: '嶺頭土地祠', enName: 'Stop 6', isTransfer: false, desc: '越嶺的高點，稍作休息。', attractions: ['前往下一站：1200m，步行約 16 分鐘，下坡 70m'] },
+                  { id: '07', name: '三港福德祠', enName: 'Stop 7', isTransfer: false, desc: '進入三港地區。', attractions: ['前往下一站：650m，步行約 8 分鐘，下坡 9m'] },
+                  { id: '08', name: '三港福德廟', enName: 'Stop 8', isTransfer: false, desc: '感受在地信仰凝聚力。', attractions: ['前往下一站：650m，步行約 8 分鐘（平緩路段）'] },
+                  { id: '09', name: '三港水尾福德祠', enName: 'Stop 9', isTransfer: false, desc: '水路交會處的守護者。', attractions: ['前往下一站：350m，步行約 5 分鐘（平緩路段）'] },
+                  { id: '10', name: '三港水尾福德廟', enName: 'End', isTransfer: true, transferTo: ['完成路線'], desc: '🏁 抵達終點，圓滿完成雙溪三巷福德之旅。', attractions: [] },
+                ]
+              }
+            ],
+            events: BRAND_EVENTS, about: BRAND_ABOUT
+          },
+          {
+            id: 'n_coast', name: '新北東北角海岸', icon: 'waves', themeColor: 'bg-blue-800', textColor: 'text-blue-800', lightBg: 'bg-blue-50', buttonColor: 'bg-blue-600',
+            image: ASSETS.TEMPLE_MAIN,
+            overview: {
+              title: '海金臍帶路徑',
+              desc: '伴隨海風與浪花，從福隆火車站徒步至石城火車站。沿著東北角海岸線，尋訪守護討海人的福德廟。',
+              history: [
+                { year: '起終點', title: '福隆 ➔ 石城', desc: '搭乘火車即可輕鬆抵達起終點' },
+                { year: '中途點', title: '卯澳與馬崗', desc: '至「卯澳福德廟」時約已步行 8 公里' },
+                { year: '備註', title: '公車撤退點', desc: '中途於卯澳及馬崗設有公車撤退點，可彈性調整體力' }
+              ]
+            },
+            lines: [
+              {
+                id: 'coast_main', name: '東北角海岸線', color: 'bg-blue-500', lineColor: 'border-blue-400', textColor: 'text-blue-600',
+                stations: [
+                  { id: '00', name: '福隆火車站大廳', enName: 'Start', isTransfer: true, transferTo: ['台鐵'], desc: '起點。集結出發，補充水分。', attractions: [] },
+                  { id: '01', name: '魏家村石頭福德廟', enName: 'Stop 1', isTransfer: false, desc: '特色石頭建築的福德廟。', attractions: [] },
+                  { id: '02', name: '虎子山福德廟', enName: 'Stop 2', isTransfer: false, desc: '依山傍海的靜謐角落。', attractions: [] },
+                  { id: '03', name: '東興宮旁挖子港福德廟', enName: 'Stop 3', isTransfer: false, desc: '鄰近漁港，守護出海平安。', attractions: [] },
+                  { id: '04', name: '桂安街福德廟', enName: 'Stop 4', isTransfer: false, desc: '海岸村落的信仰中心。', attractions: [] },
+                  { id: '05', name: '香蘭土地公', enName: 'Stop 5', isTransfer: false, desc: '吹著海風的土地公。', attractions: [] },
+                  { id: '06', name: '卯澳福德廟', enName: 'Stop 6', isTransfer: true, transferTo: ['公車撤退點'], desc: '抵達此處約已步行 8 公里，可稍作大休。', attractions: ['百年石頭屋', '卯澳漁村'] },
+                  { id: '07', name: '馬崗福德廟', enName: 'Stop 7', isTransfer: true, transferTo: ['公車撤退點'], desc: '台灣極東的漁村落。', attractions: ['馬崗潮間帶'] },
+                  { id: '08', name: '蓬萊街福德廟', enName: 'Stop 8', isTransfer: false, desc: '持續沿著海岸線邁進。', attractions: [] },
+                  { id: '09', name: '石城漁港福德廟', enName: 'Stop 9', isTransfer: false, desc: '看見龜山島的絕佳視野。', attractions: [] },
+                  { id: '10', name: '石城火車站', enName: 'End', isTransfer: true, transferTo: ['台鐵', '完成路線'], desc: '🏁 抵達終點。台灣最東端的車站。', attractions: [] },
+                ]
+              }
+            ],
+            events: BRAND_EVENTS, about: BRAND_ABOUT
+          },
+          {
+            id: 'n_shulin', name: '新北樹林', icon: 'building', themeColor: 'bg-teal-700', textColor: 'text-teal-800', lightBg: 'bg-teal-50', buttonColor: 'bg-teal-600',
+            image: ASSETS.TEMPLE_MAIN,
+            overview: {
+              title: '穿梭市井的祈福走讀',
+              desc: '在樹林地區的巷弄與街角間穿梭，連續參拜 11 座與在地生活緊密相連的福德宮，是一趟貼近常民生活的祈福之路。',
+              history: [
+                { year: '特色', title: '市區走讀', desc: '穿梭巷弄，感受濃厚的人情味' },
+                { year: '數量', title: '11座福德宮', desc: '密度極高的土地公巡禮' }
+              ]
+            },
+            lines: [
+              {
+                id: 'shulin_main', name: '樹林祈福線', color: 'bg-teal-500', lineColor: 'border-teal-400', textColor: 'text-teal-600',
+                stations: [
+                  { id: '01', name: '東陽福德宮', enName: 'Stop 1', isTransfer: false, desc: '路線起點。', attractions: [] },
+                  { id: '02', name: '東昇福德宮', enName: 'Stop 2', isTransfer: false, desc: '市街中的庇護。', attractions: [] },
+                  { id: '03', name: '育林大安福德宮', enName: 'Stop 3', isTransfer: false, desc: '守護學子與鄉里的土地公。', attractions: [] },
+                  { id: '04', name: '樹林坡內永興宮', enName: 'Stop 4', isTransfer: false, desc: '香火鼎盛的地方信仰。', attractions: [] },
+                  { id: '05', name: '大安福德宮', enName: 'Stop 5', isTransfer: false, desc: '大安路上的祈福點。', attractions: [] },
+                  { id: '06', name: '樹林樹人宮', enName: 'Stop 6', isTransfer: false, desc: '與在地教育機構比鄰。', attractions: [] },
+                  { id: '07', name: '大安路福安宮', enName: 'Stop 7', isTransfer: false, desc: '樹人家商附近。', attractions: [] },
+                  { id: '08', name: '樹西福德宮', enName: 'Stop 8', isTransfer: false, desc: '守護樹林西側的居民。', attractions: [] },
+                  { id: '09', name: '崁頂福德宮', enName: 'Stop 9', isTransfer: false, desc: '地形微幅變化的交界處。', attractions: [] },
+                  { id: '10', name: '潭底福德宮', enName: 'Stop 10', isTransfer: false, desc: '見證過往水文歷史。', attractions: [] },
+                  { id: '11', name: '樹德宮', enName: 'End', isTransfer: true, transferTo: ['完成路線'], desc: '🏁 抵達終點。福德圓滿。', attractions: [] },
+                ]
+              }
+            ],
+            events: BRAND_EVENTS, about: BRAND_ABOUT
+          }
+        ]
+      },
+      central: {
+        id: 'central', name: '中部區域',
+        systems: [
+          {
+            id: 'c_tianzhong', name: '彰化田中社頭', icon: 'wheat', themeColor: 'bg-amber-700', textColor: 'text-amber-800', lightBg: 'bg-amber-50', buttonColor: 'bg-amber-600',
+            image: ASSETS.TEMPLE_MAIN,
+            overview: {
+              title: '黃金稻浪旁的祈福之路',
+              desc: '從田中車站出發，漫步於彰化平原。總長 8.2 公里，途經傳統市場與田野，深刻體驗中台灣的農業脈動與淳樸信仰。',
+              history: [
+                { year: '距離', title: '8.2 公里', desc: '平緩好走的鄉間路段' },
+                { year: '時間', title: '1小時53分鐘', desc: '總步行時間' },
+                { year: '落差', title: '+11m / -20m', desc: '爬升11公尺、下降20公尺，極為平緩' }
+              ]
+            },
+            lines: [
+              {
+                id: 'tianzhong_main', name: '田中社頭線', color: 'bg-amber-500', lineColor: 'border-amber-400', textColor: 'text-amber-600',
+                stations: [
+                  { id: '00', name: '田中車站', enName: 'Start', isTransfer: true, transferTo: ['台鐵'], desc: '起點 (田中鎮中州路一段1號)。集結出發。', attractions: ['前往下一站：需步行 13 分鐘'] },
+                  { id: '01', name: '乾福宮', enName: 'Stop 1', isTransfer: false, desc: '田中鎮明慶街6號。', attractions: ['前往下一站：需步行 10 分鐘'] },
+                  { id: '02', name: '福德宮', enName: 'Stop 2', isTransfer: false, desc: '田中鎮和平路764號。', attractions: ['前往下一站：需步行 28 分鐘'] },
+                  { id: '03', name: '田中福天宮(土地公廟)', enName: 'Stop 3', isTransfer: false, desc: '位於田中鎮內，感受小鎮風情。', attractions: ['前往下一站：需步行 16 分鐘'] },
+                  { id: '04', name: '埤斗村福德宮', enName: 'Stop 4', isTransfer: false, desc: '跨入社頭鄉界 (清興路31之15號)。', attractions: ['前往下一站：需步行 9 分鐘'] },
+                  { id: '05', name: '福安宮', enName: 'Stop 5', isTransfer: false, desc: '社頭鄉鴻門巷，周邊農田風光。', attractions: ['前往下一站：需步行 22 分鐘'] },
+                  { id: '06', name: '舊社福德宮', enName: 'Stop 6', isTransfer: false, desc: '社頭鄉東平巷1號，寧靜的村落。', attractions: ['前往下一站：需步行 13 分鐘'] },
+                  { id: '07', name: '社頭公有零售市場', enName: 'Stop 7', isTransfer: false, desc: '社頭鄉社斗路一段118號。可在此補給在地美食。', attractions: ['前往下一站：需步行 2 分鐘'] },
+                  { id: '08', name: '福德祀', enName: 'End', isTransfer: true, transferTo: ['完成路線'], desc: '🏁 抵達終點 (社頭鄉員集路二段168號)。圓滿結伴而行。', attractions: [] },
+                ]
+              }
+            ],
+            events: BRAND_EVENTS, about: BRAND_ABOUT
+          }
+        ]
+      },
+      south: {
+        id: 'south', name: '南部區域',
+        systems: [
+          {
+            id: 's_coming', name: '南部路線 (籌備中)', icon: 'compass', themeColor: 'bg-orange-600', textColor: 'text-orange-800', lightBg: 'bg-orange-50', buttonColor: 'bg-orange-500',
+            image: ASSETS.GOD_STATUE,
+            overview: {
+              title: '陽光與熱情的福德果',
+              desc: '南部地區的福德果徒步路線正在積極探勘中，未來將帶您走訪南台灣充滿歷史與人情味的土地公廟。',
+              history: [
+                { year: '進度', title: '積極探勘中', desc: '尋找最適合步行的美麗小徑' },
+                { year: '預告', title: '即將推出', desc: '敬請期待充滿陽光的南部路線' }
+              ]
+            },
+            lines: [
+              {
+                id: 'coming_soon', name: '籌備中路線', color: 'bg-orange-400', lineColor: 'border-orange-300', textColor: 'text-orange-600',
+                stations: [
+                  { id: '01', name: '路線籌備中', enName: 'Coming Soon', isTransfer: false, desc: '更多美好路線即將上線，讓祝福繼續在土地上結果。', attractions: [] }
+                ]
+              }
+            ],
+            events: BRAND_EVENTS, about: BRAND_ABOUT
+          }
+        ]
+      }
+    };
+
+    const getMapUrl = (stationName) => {
+      const cleanName = stationName.replace(/(\(.*?\)|Start|End|Stop \d+)/g, '').trim();
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleanName)}`;
+    };
+
+    // --- 頁面 1：品牌精神 ---
+    const OverviewTab = ({ system }) => (
+      <div className="h-full w-full overflow-y-auto bg-gray-50 relative pb-6">
+        <div className={`relative ${system.themeColor} text-white p-6 md:p-12 pt-10 md:pt-16 pb-16 md:pb-24 overflow-hidden md:rounded-b-[3rem] rounded-b-3xl shadow-lg flex-shrink-0 transition-colors duration-500`}>
+          <div className="absolute top-0 right-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
+             <Icon name="footprints" className="w-64 h-64 md:w-96 md:h-96" />
+          </div>
+          <div className="max-w-4xl mx-auto relative z-10">
+            <h1 className="text-3xl md:text-5xl font-black mb-2">{system.name}</h1>
+            <p className="text-white/80 font-medium tracking-widest text-sm md:text-base mb-4">{system.overview.title}</p>
+            
+            <div className="bg-black/10 p-4 rounded-xl border border-white/20 mb-4 inline-block backdrop-blur-sm">
+              <p className="text-white font-bold italic">"Walk fullder ,where blessings grow."</p>
+              <p className="text-white/90 text-sm mt-1">一條走向福德的路，一種讓祝福在土地上結果的行走方式。</p>
+            </div>
+            
+            <p className="md:mt-4 text-white/90 leading-relaxed text-sm md:text-lg max-w-2xl">{system.overview.desc}</p>
+          </div>
+        </div>
+
+        <div className="px-5 md:px-8 -mt-8 md:-mt-12 pb-12 relative z-20 space-y-6 max-w-4xl mx-auto">
+          <section className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 mb-4">
+              <Icon name="map" className={`w-6 h-6 ${system.textColor}`} />
+              <h2 className="text-xl md:text-2xl font-bold text-gray-800">路線資訊</h2>
+            </div>
+            <div className="space-y-6 md:space-y-8 relative before:absolute before:inset-0 before:ml-3 md:before:ml-3.5 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 before:to-transparent mt-6">
+              {system.overview.history.map((hist, idx) => (
+                <div key={idx} className="relative flex items-start group">
+                  <div className={`flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full border-2 border-white ${system.themeColor} shadow shrink-0 mt-0.5 md:mt-0`}>
+                    <Icon name="leaf" className="w-3 h-3 md:w-4 md:h-4 text-white" />
+                  </div>
+                  <div className="pl-4 md:pl-6 text-sm md:text-base">
+                    <span className="font-bold text-gray-800 text-base md:text-lg">{hist.title}</span>
+                    <p className="text-gray-500 text-sm md:text-base mt-1 md:mt-2">【{hist.year}】{hist.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+
+    // --- 頁面 2：徒步路線 ---
+    const RoutesTab = ({ system }) => {
+      const [activeLine, setActiveLine] = useState(system.lines[0]);
+      const [selectedStation, setSelectedStation] = useState(system.lines[0].stations[0]);
+
+      useEffect(() => {
+        setActiveLine(system.lines[0]);
+        setSelectedStation(system.lines[0].stations[0]);
+      }, [system]);
+
+      return (
+        <div className="h-full w-full flex flex-col md:flex-row bg-gray-50 relative overflow-hidden">
+          <div className="flex-1 flex flex-col h-full relative">
+            <header className="bg-white px-5 pt-4 pb-4 md:py-6 md:px-8 shadow-sm z-20 flex-shrink-0">
+              <h2 className="text-xl md:text-2xl font-black text-gray-800 mb-3 md:mb-4">徒步路線</h2>
+              <div className="flex bg-gray-100 p-1 rounded-lg overflow-x-auto hide-scrollbar">
+                {system.lines.map(line => (
+                  <button
+                    key={line.id}
+                    onClick={() => { setActiveLine(line); setSelectedStation(line.stations[0]); }}
+                    className={`flex-1 min-w-[100px] py-2 md:py-2.5 text-sm md:text-base font-bold rounded-md transition-all whitespace-nowrap px-2 ${activeLine.id === line.id ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    {line.name}
+                  </button>
+                ))}
+              </div>
+            </header>
+
+            <main className="flex-1 overflow-y-auto px-6 md:px-8 py-4 pb-48 md:pb-8">
+              <div className="relative min-h-full pb-8 max-w-xl mx-auto md:ml-0 md:max-w-full">
+                <div className="absolute top-4 bottom-8 left-[1.375rem] md:left-[1.625rem] border-l-4 border-dashed border-gray-300 z-0 opacity-50 ml-[1px]"></div>
+                <div className={`absolute top-4 left-[1.375rem] md:left-[1.625rem] border-l-4 border-dashed ${activeLine.lineColor} ml-[1px] z-0 transition-all duration-500`} style={{height: `${(activeLine.stations.findIndex(s => s.id === selectedStation.id) / (activeLine.stations.length - 1)) * 100}%`}}></div>
+                
+                <div className="space-y-6 md:space-y-8 relative z-10">
+                  {activeLine.stations.map((station) => {
+                    const isSelected = selectedStation.id === station.id;
+                    return (
+                      <div key={station.id} className="flex items-center group cursor-pointer" onClick={() => setSelectedStation(station)}>
+                        <div className="w-12 md:w-14 flex-shrink-0 flex justify-center bg-white rounded-full py-2">
+                          <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full border-4 border-white shadow-sm transition-all duration-300 ${isSelected ? `${activeLine.color} scale-125 ring-4 ring-${activeLine.color}/30` : 'bg-gray-300 group-hover:bg-gray-400'} ${station.isTransfer && !isSelected ? 'bg-white border-4 !border-gray-800' : ''}`} />
+                        </div>
+                        <div className={`flex-1 pl-4 md:pl-6 py-3 md:py-4 rounded-2xl transition-all ${isSelected ? 'bg-white shadow-md border border-gray-200' : 'hover:bg-gray-200/50 border border-transparent'}`}>
+                          <div className="flex justify-between items-center pr-3 md:pr-5">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[10px] md:text-xs font-bold px-2 py-0.5 md:py-1 rounded-full bg-gray-100 text-gray-500 ${isSelected ? activeLine.textColor : ''}`}>{station.id}</span>
+                                <h3 className={`text-lg md:text-xl font-bold ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>{station.name}</h3>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 items-center md:hidden">
+                              <a href={getMapUrl(station.name)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className={`p-2 rounded-full inline-flex transition-colors ${isSelected ? `${system.lightBg} ${system.textColor}` : 'bg-gray-100 text-gray-400'}`}>
+                                <Icon name="map-pin" className="w-4 h-4" />
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </main>
+          </div>
+
+          <div className="
+            md:static md:w-80 lg:w-[400px] md:h-full md:border-l md:border-gray-200 md:rounded-none md:shadow-[-4px_0_20px_rgba(0,0,0,0.03)] md:transform-none md:flex md:flex-col
+            absolute bottom-0 left-0 right-0 bg-white shadow-[0_-10px_40px_rgba(0,0,0,0.15)] rounded-t-3xl border-t border-gray-100 z-30 transition-transform
+          ">
+            <div className="md:hidden w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 mb-2"></div>
+            
+            <div className="p-5 md:p-8 pt-1 md:pt-8 pb-6 md:pb-8 flex flex-col h-full overflow-y-auto">
+              <div className="flex items-start justify-between mb-4 md:mb-6 shrink-0">
+                <div>
+                  <div className={`inline-block text-xs md:text-sm font-bold px-2 py-1 md:px-3 md:py-1.5 rounded-full text-white ${activeLine.color} mb-2`}>停留點 {selectedStation.id}</div>
+                  <h2 className="text-2xl md:text-3xl font-black text-gray-900 leading-none mt-1">{selectedStation.name}</h2>
+                </div>
+                <a href={getMapUrl(selectedStation.name)} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-1.5 md:gap-2 ${system.lightBg} ${system.textColor} px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-bold hover:opacity-80 transition-opacity shrink-0`}>
+                  <span>地圖</span><Icon name="external-link" className="w-3 h-3 md:w-4 md:h-4" />
+                </a>
+              </div>
+              
+              <div className="w-full h-px bg-gray-100 my-4 md:my-6 shrink-0"></div>
+              
+              <p className="text-gray-600 text-sm md:text-base leading-relaxed md:leading-loose my-6 shrink-0">{selectedStation.desc}</p>
+              
+              <div className="flex flex-col gap-3 md:gap-4 mt-auto md:mt-0 shrink-0">
+                {selectedStation.isTransfer && (
+                  <div className="flex items-center gap-3 bg-amber-50 rounded-xl p-3 md:p-4">
+                    <div className="bg-amber-100 p-2 rounded-lg text-amber-600"><Icon name="footprints" className="w-5 h-5" /></div>
+                    <div>
+                      <p className="text-[10px] md:text-xs text-amber-500 font-bold mb-0.5">路線動態</p>
+                      <span className="text-sm md:text-base font-bold text-amber-800">{selectedStation.transferTo.join(', ')}</span>
+                    </div>
+                  </div>
+                )}
+                {selectedStation.attractions && selectedStation.attractions.length > 0 && (
+                  <div className="flex items-center gap-3 bg-emerald-50 rounded-xl p-3 md:p-4">
+                    <div className="bg-emerald-100 p-2 rounded-lg text-emerald-600"><Icon name="compass" className="w-5 h-5" /></div>
+                    <div>
+                      <p className="text-[10px] md:text-xs text-emerald-500 font-bold mb-0.5">徒步指引</p>
+                      <span className="text-sm md:text-base font-bold text-emerald-800">{selectedStation.attractions.join(', ')}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- 頁面 3：行腳活動 ---
+    const EventsTab = ({ system }) => {
+      const { events, lightBg, textColor, buttonColor } = system;
+      return (
+        <div className="h-full w-full overflow-y-auto bg-gray-50">
+          <header className="bg-white px-5 md:px-10 pt-8 md:pt-12 pb-4 md:pb-6 shadow-sm z-20 sticky top-0">
+            <div className="max-w-4xl mx-auto">
+              <h2 className="text-2xl md:text-3xl font-black text-gray-800">行腳活動</h2>
+              <p className="text-sm md:text-base text-gray-500 mt-1 md:mt-2">跟著 Fullder Go 一起走出祝福</p>
+            </div>
+          </header>
+
+          <div className="p-5 md:p-10 max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 pb-12">
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <Icon name="sun" className={`w-6 h-6 ${textColor}`} /> 焦點行腳
+                </h3>
+                <span className="bg-red-100 text-red-600 text-xs md:text-sm font-bold px-2 py-1 rounded-md flex items-center gap-1 animate-pulse">
+                  <Icon name="clock" className="w-4 h-4" /> 報名中
+                </span>
+              </div>
+              
+              <div className="bg-white rounded-3xl overflow-hidden shadow-md border border-gray-100 transition-transform hover:-translate-y-1">
+                <SmartImage src={events.latest.img} alt={events.latest.imgAlt} className="w-full h-48 md:h-56 object-cover" />
+                <div className="p-6 md:p-8">
+                  <h4 className="text-xl md:text-2xl font-black text-gray-900 mb-3">{events.latest.title}</h4>
+                  <p className="text-sm md:text-base text-gray-600 mb-6 leading-relaxed">{events.latest.desc}</p>
+                  <div className="flex items-center gap-2 text-sm text-gray-500 mb-6 font-medium bg-gray-50 p-3 rounded-lg">
+                    <Icon name="calendar" className="w-5 h-5 text-gray-400" /> {events.latest.date}
+                  </div>
+                  <button className={`w-full ${buttonColor} text-white text-base md:text-lg font-bold py-4 rounded-xl transition-all shadow-lg hover:shadow-xl hover:opacity-90 active:scale-[0.98]`}>
+                    立即報名參加
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-6">
+                <Icon name="check-circle" className="w-6 h-6 text-emerald-500" /> 歷史足跡
+              </h3>
+              
+              <div className="relative border-l-2 border-gray-200 ml-4 space-y-8 pb-4">
+                {events.history.map((event, idx) => (
+                  <div key={idx} className="relative pl-8">
+                    <div className="absolute w-4 h-4 bg-gray-300 rounded-full -left-[9px] top-1.5 border-[3px] border-white shadow-sm"></div>
+                    <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                      <span className="text-xs md:text-sm font-bold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">{event.year}</span>
+                      <h4 className="text-lg md:text-xl font-bold text-gray-800 mt-3 mb-2">{event.title}</h4>
+                      <p className="text-sm md:text-base text-gray-600 leading-relaxed">{event.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        </div>
+      );
+    };
+
+    // --- 頁面 4：關於我們 ---
+    const AboutTab = ({ system }) => {
+      const { about, themeColor } = system;
+      return (
+        <div className="h-full w-full overflow-y-auto bg-gray-50">
+          <header className={`${themeColor} text-white px-5 md:px-10 pt-12 md:pt-16 pb-12 md:pb-20 shadow-md rounded-b-[3rem] transition-colors duration-500 relative overflow-hidden`}>
+            <div className="absolute bottom-0 right-0 opacity-20 transform translate-y-1/4">
+                <SmartImage src={about.image} alt="土地公聖像" className="w-48 md:w-80" mask={true} />
+            </div>
+            <div className="max-w-3xl mx-auto relative z-10">
+              <h2 className="text-3xl md:text-4xl font-black mb-2">關於我們</h2>
+              <p className="text-white/70 text-base md:text-lg">{about.company}</p>
+            </div>
+          </header>
+
+          <div className="p-5 md:p-10 -mt-8 md:-mt-12 relative z-10 pb-12 max-w-3xl mx-auto space-y-6">
+            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100">
+              <h3 className="text-xl font-bold text-gray-800 mb-3 md:mb-4 flex items-center gap-2">
+                <Icon name="book-open" className={`w-6 h-6 ${system.textColor}`} /> 品牌精神
+              </h3>
+              <p className="text-base md:text-lg text-gray-600 leading-relaxed md:leading-loose whitespace-pre-line">{about.desc}</p>
+            </div>
+
+            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 md:mb-6 border-b border-gray-100 pb-4">聯絡資訊</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <a href={`tel:${about.phoneRaw}`} className="flex items-center gap-4 p-3 md:p-4 hover:bg-gray-50 rounded-2xl transition-colors group">
+                  <div className="bg-blue-50 p-3 md:p-4 rounded-full text-blue-600 group-hover:bg-blue-100 transition-colors"><Icon name="phone" className="w-5 h-5 md:w-6 md:h-6" /></div>
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-400 font-bold mb-1">客服專線</p>
+                    <p className="text-base md:text-xl font-black text-gray-800 tracking-wide">{about.phone}</p>
+                  </div>
+                </a>
+                <a href={`mailto:${about.email}`} className="flex items-center gap-4 p-3 md:p-4 hover:bg-gray-50 rounded-2xl transition-colors group">
+                  <div className="bg-orange-50 p-3 md:p-4 rounded-full text-orange-600 group-hover:bg-orange-100 transition-colors"><Icon name="mail" className="w-5 h-5 md:w-6 md:h-6" /></div>
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-400 font-bold mb-1">聯絡信箱</p>
+                    <p className="text-base md:text-lg font-bold text-gray-800">{about.email}</p>
+                  </div>
+                </a>
+              </div>
+              <div className="flex items-center gap-4 p-3 md:p-4 group">
+                <div className="bg-emerald-50 p-3 md:p-4 rounded-full text-emerald-600"><Icon name="map-pin" className="w-5 h-5 md:w-6 md:h-6" /></div>
+                <div>
+                  <p className="text-xs md:text-sm text-gray-400 font-bold mb-1">發源地</p>
+                  <p className="text-base md:text-lg font-bold text-gray-800 leading-tight">{about.address}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- 主應用程式 ---
+    function App() {
+      const [activeTab, setActiveTab] = useState('overview');
+      const [currentSystem, setCurrentSystem] = useState(FULLDER_DATA.north.systems[0]);
+      const [isPickerOpen, setIsPickerOpen] = useState(false);
+
+      const NAV_ITEMS = [
+        { id: 'overview', label: '品牌精神', icon: 'leaf' },
+        { id: 'routes', label: '徒步路線', icon: 'map' },
+        { id: 'events', label: '行腳活動', icon: 'sun' },
+        { id: 'about', label: '關於我們', icon: 'users' },
+      ];
+
+      return (
+        <div className="h-screen w-full flex flex-col md:flex-row bg-gray-100 font-sans text-gray-800 overflow-hidden">
+          <nav className="hidden md:flex flex-col w-24 lg:w-28 bg-white border-r border-gray-200 z-40 shadow-sm py-6">
+            <div className="flex flex-col items-center mb-8 px-2">
+              <div className="w-16 h-16 mb-1 shrink-0 transition-transform hover:scale-105 rounded-full shadow-sm bg-white overflow-hidden">
+                <SmartImage src={ASSETS.APP_ICON} alt="Fullder Go Logo" className="w-full h-full object-cover" />
+              </div>
+            </div>
+            <div className="flex-1 flex flex-col gap-6 px-3">
+              {NAV_ITEMS.map((item) => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-200 ${isActive ? `${currentSystem.lightBg} ${currentSystem.textColor}` : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}>
+                    <Icon name={item.icon} className={`w-6 h-6 mb-2 ${isActive ? 'scale-110' : ''} transition-transform`} />
+                    <span className={`text-[11px] font-bold`}>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+
+          <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-white md:bg-gray-50 md:rounded-l-3xl md:shadow-[-10px_0_30px_rgba(0,0,0,0.05)]">
+            <div className="bg-white md:bg-transparent border-b md:border-b-0 border-gray-100 px-4 md:px-8 py-3 md:py-6 flex items-center justify-between z-40 cursor-pointer active:opacity-70 transition-opacity" onClick={() => setIsPickerOpen(true)}>
+              <div className="flex items-center gap-3">
+                <div className="md:hidden w-12 h-12 shrink-0 rounded-full shadow-sm bg-white overflow-hidden">
+                  <SmartImage src={ASSETS.APP_ICON} alt="Fullder Go Logo" className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <p className="text-[10px] md:text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">切換區域與路線</p>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base md:text-2xl font-black text-gray-900 leading-none">{currentSystem.name}</h2>
+                    <Icon name="chevron-down" className="w-4 h-4 md:w-5 md:h-5 text-gray-400" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-hidden relative">
+              {activeTab === 'overview' && <OverviewTab system={currentSystem} />}
+              {activeTab === 'routes' && <RoutesTab system={currentSystem} />}
+              {activeTab === 'events' && <EventsTab system={currentSystem} />}
+              {activeTab === 'about' && <AboutTab system={currentSystem} />}
+            </div>
+
+            <nav className="md:hidden h-[64px] bg-white border-t border-gray-200 grid grid-cols-4 items-center flex-shrink-0 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] pb-safe">
+              {NAV_ITEMS.map((item) => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex flex-col items-center justify-center w-full h-full transition-all duration-200 ${isActive ? currentSystem.textColor : 'text-gray-400'}`}>
+                    <div className={`relative mb-1 p-1 rounded-full transition-all ${isActive ? currentSystem.lightBg : ''}`}>
+                      <Icon name={item.icon} className={`w-6 h-6 ${isActive ? 'scale-110' : ''} transition-transform`} />
+                    </div>
+                    <span className={`text-[10px] font-bold`}>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            {isPickerOpen && (
+              <div className="absolute inset-0 z-50 flex flex-col justify-end md:justify-center md:items-center md:p-6">
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsPickerOpen(false)}></div>
+                <div className="bg-white rounded-t-3xl md:rounded-3xl relative z-10 animate-slide-up md:animate-fade-in-scale shadow-2xl flex flex-col w-full max-h-[85vh] md:max-w-3xl md:max-h-[80vh]">
+                  <div className="flex items-center justify-between p-5 md:p-6 border-b border-gray-100">
+                    <h3 className="text-xl md:text-2xl font-black text-gray-900">選擇福德果路線</h3>
+                    <button onClick={() => setIsPickerOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-600 hover:bg-gray-200 transition-colors">
+                      <Icon name="x" className="w-5 h-5 md:w-6 md:h-6" />
+                    </button>
+                  </div>
+                  <div className="overflow-y-auto p-5 md:p-8 space-y-8">
+                    {Object.values(FULLDER_DATA).map(region => (
+                      <div key={region.id}>
+                        <div className="flex items-center gap-3 mb-4">
+                          <h4 className="text-sm md:text-base font-black text-gray-400 tracking-widest">{region.name}</h4>
+                          <div className="flex-1 h-px bg-gray-100"></div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                          {region.systems.map(sys => (
+                            <button 
+                              key={sys.id} 
+                              onClick={() => { setCurrentSystem(sys); setIsPickerOpen(false); setActiveTab('routes'); }} 
+                              className={`text-left p-4 md:p-5 rounded-2xl border-2 transition-all duration-200 flex flex-col overflow-hidden relative ${currentSystem.id === sys.id ? `border-transparent ${sys.themeColor} text-white shadow-lg md:scale-105` : 'border-gray-100 bg-white hover:border-gray-300 hover:bg-gray-50 text-gray-800 shadow-sm'}`}
+                            >
+                              <Icon name={sys.icon || 'footprints'} className={`relative z-10 w-6 h-6 md:w-8 md:h-8 mb-2 md:mb-3 ${currentSystem.id === sys.id ? 'text-white/80' : sys.textColor}`} />
+                              <p className="relative z-10 font-bold text-base md:text-lg leading-tight">{sys.name}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
