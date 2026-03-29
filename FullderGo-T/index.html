@@ -119,30 +119,15 @@
       image: assets.GOD_STATUE
     });
 
-    const getBrandEvents = (assets) => ({
-      latest: { 
-        title: '秋收感恩行腳：土地的祝福', 
-        desc: '跟著導覽員一起走入鄉間，探訪沿途的福德宮。在秋收的季節，感謝土地一整年的庇佑，並品嚐在地農家準備的福食。', 
-        date: '2026/10/15 - 2026/10/16', 
-        img: assets.TEMPLE_PORCH,
-        imgAlt: '秋收行腳活動視覺' 
-      },
-      history: [
-        { year: '2025', title: '春暖花開祈福走', desc: '百人齊聚，沿著海岸線的土地公廟徒步祈福，迎接新的一年。' },
-        { year: '2024', title: '福德果試走探勘行動', desc: '召集熱愛徒步的先鋒，完成北中南多條經典路線的探勘與紀錄。' }
-      ]
-    });
-
     const getMapUrl = (stationName) => {
       const cleanName = stationName.replace(/(\(.*?\)|Start|End|Stop \d+)/g, '').trim();
       return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleanName)}`;
     };
 
     // --- CSV 資料合併處理邏輯 (結合動態圖檔設定) ---
-    const mergeCsvData = (sysArray, stArray, assets) => {
+    const mergeCsvData = (sysArray, stArray, assets, evArray = []) => {
       const parsedData = {};
       const currentBrandAbout = getBrandAbout(assets);
-      const currentBrandEvents = getBrandEvents(assets);
 
       sysArray.forEach(row => {
         const rId = row['區域ID'];
@@ -181,9 +166,44 @@
             textColor: `text-${baseColor}-600`,
             stations: [] 
           }],
-          events: currentBrandEvents,
+          events: { latest: null, history: [] },
           about: currentBrandAbout
         };
+
+        // 處理行腳活動資料對應
+        evArray.forEach(ev => {
+          if (ev['路線系統ID'] === sId) {
+            if (ev['活動類型'] === '焦點') {
+              system.events.latest = {
+                title: ev['活動標題'],
+                desc: ev['活動描述'],
+                date: ev['活動日期'],
+                img: ev['活動圖片'] || assets.TEMPLE_PORCH,
+                link: ev['報名連結'] || '#',
+                status: ev['狀態'] || '報名中'
+              };
+            } else if (ev['活動類型'] === '歷史') {
+              system.events.history.push({
+                year: ev['活動日期'],
+                title: ev['活動標題'],
+                desc: ev['活動描述']
+              });
+            }
+          }
+        });
+
+        // 如果該路線沒有焦點活動的預設值
+        if (!system.events.latest) {
+          system.events.latest = {
+            title: '近期尚無焦點活動',
+            desc: '目前此路線正在籌備新的行腳活動，敬請期待。',
+            date: '即將推出',
+            img: assets.TEMPLE_PORCH,
+            link: '#',
+            status: '籌備中'
+          };
+        }
+
         parsedData[rId].systems.push(system);
       });
 
@@ -411,22 +431,22 @@
                 <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                   <Icon name="sun" className={`w-6 h-6 ${textColor}`} /> 焦點行腳
                 </h3>
-                <span className="bg-red-100 text-red-600 text-xs md:text-sm font-bold px-2 py-1 rounded-md flex items-center gap-1 animate-pulse">
-                  <Icon name="clock" className="w-4 h-4" /> 報名中
+                <span className={`text-xs md:text-sm font-bold px-2 py-1 rounded-md flex items-center gap-1 ${events.latest.status === '報名中' ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-gray-100 text-gray-500'}`}>
+                  <Icon name="clock" className="w-4 h-4" /> {events.latest.status}
                 </span>
               </div>
               
               <div className="bg-white rounded-3xl overflow-hidden shadow-md border border-gray-100 transition-transform hover:-translate-y-1">
-                <SmartImage src={events.latest.img} alt={events.latest.imgAlt} className="w-full h-48 md:h-56 object-cover" />
+                <SmartImage src={events.latest.img} alt={events.latest.title} className="w-full h-48 md:h-56 object-cover" />
                 <div className="p-6 md:p-8">
                   <h4 className="text-xl md:text-2xl font-black text-gray-900 mb-3">{events.latest.title}</h4>
                   <p className="text-sm md:text-base text-gray-600 mb-6 leading-relaxed">{events.latest.desc}</p>
                   <div className="flex items-center gap-2 text-sm text-gray-500 mb-6 font-medium bg-gray-50 p-3 rounded-lg">
                     <Icon name="calendar" className="w-5 h-5 text-gray-400" /> {events.latest.date}
                   </div>
-                  <button className={`w-full ${buttonColor} text-white text-base md:text-lg font-bold py-4 rounded-xl transition-all shadow-lg hover:shadow-xl hover:opacity-90 active:scale-[0.98]`}>
-                    立即報名參加
-                  </button>
+                  <a href={events.latest.link} target={events.latest.link !== '#' ? "_blank" : "_self"} rel="noopener noreferrer" className={`block text-center w-full ${events.latest.link !== '#' ? buttonColor + ' text-white shadow-lg hover:shadow-xl hover:opacity-90 active:scale-[0.98]' : 'bg-gray-200 text-gray-500 cursor-not-allowed'} text-base md:text-lg font-bold py-4 rounded-xl transition-all`}>
+                    {events.latest.link !== '#' ? '立即報名參加' : '敬請期待'}
+                  </a>
                 </div>
               </div>
             </section>
@@ -437,7 +457,7 @@
               </h3>
               
               <div className="relative border-l-2 border-gray-200 ml-4 space-y-8 pb-4">
-                {events.history.map((event, idx) => (
+                {events.history.length > 0 ? events.history.map((event, idx) => (
                   <div key={idx} className="relative pl-8">
                     <div className="absolute w-4 h-4 bg-gray-300 rounded-full -left-[9px] top-1.5 border-[3px] border-white shadow-sm"></div>
                     <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
@@ -446,7 +466,9 @@
                       <p className="text-sm md:text-base text-gray-600 leading-relaxed">{event.desc}</p>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="pl-8 text-gray-400 font-medium">此路線尚未有歷史行腳紀錄。</div>
+                )}
               </div>
             </section>
           </div>
@@ -523,10 +545,12 @@
       const [sysFile, setSysFile] = useState(null);
       const [stFile, setStFile] = useState(null);
       const [astFile, setAstFile] = useState(null);
+      const [evFile, setEvFile] = useState(null);
       
       const [tempSystems, setTempSystems] = useState([]);
       const [tempStations, setTempStations] = useState([]);
       const [tempAssets, setTempAssets] = useState([]);
+      const [tempEvents, setTempEvents] = useState([]);
 
       const [isLoading, setIsLoading] = useState(true);
       const [loadError, setLoadError] = useState(null);
@@ -536,9 +560,10 @@
         Promise.all([
           fetch('systems.csv').then(res => { if(!res.ok) throw new Error('systems'); return res.text(); }),
           fetch('stations.csv').then(res => { if(!res.ok) throw new Error('stations'); return res.text(); }),
-          fetch('assets.csv').then(res => res.ok ? res.text() : null).catch(() => null) // assets.csv 為選填
+          fetch('assets.csv').then(res => res.ok ? res.text() : null).catch(() => null),
+          fetch('events.csv').then(res => res.ok ? res.text() : null).catch(() => null)
         ])
-        .then(([sysText, stText, astText]) => {
+        .then(([sysText, stText, astText, evText]) => {
           let currentAssets = { ...DEFAULT_ASSETS };
           
           if (astText) {
@@ -554,8 +579,9 @@
 
           const sysParsed = Papa.parse(sysText, { header: true, skipEmptyLines: true }).data;
           const stParsed = Papa.parse(stText, { header: true, skipEmptyLines: true }).data;
+          const evParsed = evText ? Papa.parse(evText, { header: true, skipEmptyLines: true }).data : [];
 
-          const mergedData = mergeCsvData(sysParsed, stParsed, currentAssets);
+          const mergedData = mergeCsvData(sysParsed, stParsed, currentAssets, evParsed);
           
           if (Object.keys(mergedData).length > 0) {
             setFullderData(mergedData);
@@ -582,6 +608,7 @@
         if (type === 'systems') setSysFile(file);
         if (type === 'stations') setStFile(file);
         if (type === 'assets') setAstFile(file);
+        if (type === 'events') setEvFile(file);
 
         Papa.parse(file, {
           header: true,
@@ -590,6 +617,7 @@
             if (type === 'systems') setTempSystems(results.data);
             if (type === 'stations') setTempStations(results.data);
             if (type === 'assets') setTempAssets(results.data);
+            if (type === 'events') setTempEvents(results.data);
           },
           error: (err) => {
             alert(`讀取${type}檔案失敗：` + err.message);
@@ -612,7 +640,7 @@
             });
           }
 
-          const mergedData = mergeCsvData(tempSystems, tempStations, currentAssets);
+          const mergedData = mergeCsvData(tempSystems, tempStations, currentAssets, tempEvents);
           
           if (Object.keys(mergedData).length > 0) {
             setFullderData(mergedData);
@@ -622,8 +650,8 @@
             setIsImportModalOpen(false);
             
             // 清除暫存狀態
-            setSysFile(null); setStFile(null); setAstFile(null);
-            setTempSystems([]); setTempStations([]); setTempAssets([]);
+            setSysFile(null); setStFile(null); setAstFile(null); setEvFile(null);
+            setTempSystems([]); setTempStations([]); setTempAssets([]); setTempEvents([]);
             
             alert("✅ 路線與圖檔資料匯入成功！");
           } else {
@@ -822,13 +850,28 @@
                         <input type="file" accept=".csv" className="hidden" onChange={e => handleFileParse(e, 'stations')} />
                       </label>
 
-                      {/* 3. 上傳圖檔設定 (選填) */}
+                      {/* 3. 上傳行腳活動 (選填) */}
+                      <label className={`block p-3 border-2 border-dashed rounded-xl transition-colors cursor-pointer ${evFile ? 'border-purple-400 bg-purple-50' : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${evFile ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}><Icon name="sun" className="w-5 h-5"/></div>
+                            <div>
+                              <p className="font-bold text-gray-800 text-sm">3. 行腳活動 (Events) - <span className="text-xs text-gray-400 font-normal">選填</span></p>
+                              <p className={`text-[11px] mt-0.5 font-medium ${evFile ? 'text-purple-600' : 'text-gray-400'}`}>{evFile ? evFile.name : '各路線的報名與歷史活動'}</p>
+                            </div>
+                          </div>
+                          {evFile && <Icon name="check-circle" className="w-5 h-5 text-purple-500"/>}
+                        </div>
+                        <input type="file" accept=".csv" className="hidden" onChange={e => handleFileParse(e, 'events')} />
+                      </label>
+
+                      {/* 4. 上傳圖檔設定 (選填) */}
                       <label className={`block p-3 border-2 border-dashed rounded-xl transition-colors cursor-pointer ${astFile ? 'border-amber-400 bg-amber-50' : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'}`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className={`p-2 rounded-lg ${astFile ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-500'}`}><Icon name="image" className="w-5 h-5"/></div>
                             <div>
-                              <p className="font-bold text-gray-800 text-sm">3. 圖檔設定 (Assets) - <span className="text-xs text-gray-400 font-normal">選填</span></p>
+                              <p className="font-bold text-gray-800 text-sm">4. 圖檔設定 (Assets) - <span className="text-xs text-gray-400 font-normal">選填</span></p>
                               <p className={`text-[11px] mt-0.5 font-medium ${astFile ? 'text-amber-600' : 'text-gray-400'}`}>{astFile ? astFile.name : '未選擇則使用預設圖檔'}</p>
                             </div>
                           </div>
