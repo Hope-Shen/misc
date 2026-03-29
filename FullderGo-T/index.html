@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fullder Go 福德果 | 一條走向福德的路</title>
+  
+  <!-- 載入 React 與 ReactDOM (CDN) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- 載入 Babel -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- 載入 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- 載入 Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- 載入 PapaParse (解析 CSV 套件) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+  <style>
+    /* 隱藏捲軸但保留捲動功能 */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 動畫定義 */
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    @keyframes fadeInScale {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
+    .animate-fade-in-scale { animation: fadeInScale 0.2s ease-out forwards; }
+    
+    body {
+      margin: 0;
+      background-color: #f3f4f6;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    .watercolor-mask {
+        mask-image: radial-gradient(circle, black 60%, transparent 100%);
+        -webkit-mask-image: radial-gradient(circle, black 60%, transparent 100%);
+    }
+
+    .img-loading {
+        filter: blur(5px);
+        transition: filter 0.3s ease;
+    }
+    .img-loaded {
+        filter: blur(0);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // --- 圖示元件 ---
+    const Icon = ({ name, className }) => {
+      const spanRef = useRef(null);
+      useEffect(() => {
+        if (spanRef.current && window.lucide) {
+          spanRef.current.innerHTML = `<i data-lucide="${name}" class="${className || ''}"></i>`;
+          window.lucide.createIcons({ root: spanRef.current });
+        }
+      }, [name, className]);
+      return <span ref={spanRef} className="inline-flex items-center justify-center"></span>;
+    };
+
+    // --- 預設素材路徑定義 (除 APP_ICON 外，其餘會被 assets.csv 覆蓋) ---
+    const DEFAULT_ASSETS = {
+      GOD_STATUE: 'a0fXaBDw.jpeg',      
+      TEMPLE_MAIN: 'F1IA36Xw.jpeg',    
+      TEMPLE_IN_TEMPLE: 'wYG43xow.jpeg', 
+      TEMPLE_PORCH: 'YT69jwtA.jpeg',   
+      APP_ICON: 'gemini_icon.png' // 強制保留，不受 CSV 影響
+    };
+
+    // --- 圖片組件 (含錯誤處理與後備機制) ---
+    const SmartImage = ({ src, alt, className, mask = false }) => {
+        const [error, setError] = useState(false);
+        const [loaded, setLoaded] = useState(false);
+
+        if (error || !src) {
+            return (
+                <div className={`bg-stone-100 border border-stone-200 flex flex-col items-center justify-center p-4 text-stone-400 ${className}`}>
+                    <Icon name="image-off" className="w-8 h-8 mb-2 opacity-20" />
+                    <span className="text-[10px] font-medium opacity-50 text-center">需放置 {src} 於資料夾內</span>
+                </div>
+            );
+        }
+
+        return (
+            <img 
+                src={src} 
+                alt={alt} 
+                className={`${className} ${mask ? 'watercolor-mask' : ''} ${loaded ? 'img-loaded' : 'img-loading'}`}
+                onLoad={() => setLoaded(true)}
+                onError={() => setError(true)}
+            />
+        );
+    };
+
+    // --- 動態獲取品牌內容 (讓資料套用新的 assets) ---
+    const getBrandAbout = (assets) => ({
+      company: 'fulldergo (福德果)',
+      desc: '「Walk fullder ,where blessings grow.」\n\n一條走向福德的路，一種讓祝福在土地上結果的行走方式。當人走在土地上，福與德，會慢慢結果。我們致力於推廣徒步探訪土地公廟的行腳體驗，讓身心在自然與信仰中獲得平靜與祝福。',
+      phone: '0900-000-000', phoneRaw: '0900000000',
+      email: 'hello@fulldergo.com', address: '台灣 (Taiwan)',
+      image: assets.GOD_STATUE
+    });
+
+    const getBrandEvents = (assets) => ({
+      latest: { 
+        title: '秋收感恩行腳：土地的祝福', 
+        desc: '跟著導覽員一起走入鄉間，探訪沿途的福德宮。在秋收的季節，感謝土地一整年的庇佑，並品嚐在地農家準備的福食。', 
+        date: '2026/10/15 - 2026/10/16', 
+        img: assets.TEMPLE_PORCH,
+        imgAlt: '秋收行腳活動視覺' 
+      },
+      history: [
+        { year: '2025', title: '春暖花開祈福走', desc: '百人齊聚，沿著海岸線的土地公廟徒步祈福，迎接新的一年。' },
+        { year: '2024', title: '福德果試走探勘行動', desc: '召集熱愛徒步的先鋒，完成北中南多條經典路線的探勘與紀錄。' }
+      ]
+    });
+
+    const getMapUrl = (stationName) => {
+      const cleanName = stationName.replace(/(\(.*?\)|Start|End|Stop \d+)/g, '').trim();
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleanName)}`;
+    };
+
+    // --- CSV 資料合併處理邏輯 (結合動態圖檔設定) ---
+    const mergeCsvData = (sysArray, stArray, assets) => {
+      const parsedData = {};
+      const currentBrandAbout = getBrandAbout(assets);
+      const currentBrandEvents = getBrandEvents(assets);
+
+      sysArray.forEach(row => {
+        const rId = row['區域ID'];
+        const sId = row['路線系統ID'];
+        if (!rId || !sId) return;
+
+        if (!parsedData[rId]) {
+          parsedData[rId] = { id: rId, name: row['區域名稱'], systems: [] };
+        }
+
+        const baseColorMatch = row['主題色']?.match(/bg-([a-z]+)-/);
+        const baseColor = baseColorMatch ? baseColorMatch[1] : 'gray';
+
+        const system = {
+          id: sId,
+          name: row['路線系統名稱'],
+          icon: row['路線Icon'] || 'footprints',
+          themeColor: row['主題色'] || 'bg-gray-800',
+          textColor: row['文字色'] || `text-${baseColor}-800`,
+          lightBg: row['淺背景色'] || `bg-${baseColor}-50`,
+          buttonColor: row['按鈕色'] || `bg-${baseColor}-600`,
+          image: row['系統圖片'] || assets.TEMPLE_MAIN,
+          overview: {
+            title: row['簡介標題'],
+            desc: row['簡介描述'],
+            history: [row['簡介統計1'], row['簡介統計2'], row['簡介統計3']].filter(Boolean).map(s => {
+              const parts = s.split('|');
+              return { year: parts[0] || '', title: parts[1] || '', desc: parts[2] || '' };
+            }).filter(h => h.year || h.title)
+          },
+          lines: [{
+            id: sId + '_main',
+            name: row['路線系統名稱'] + '線',
+            color: `bg-${baseColor}-500`,
+            lineColor: `border-${baseColor}-400`,
+            textColor: `text-${baseColor}-600`,
+            stations: [] 
+          }],
+          events: currentBrandEvents,
+          about: currentBrandAbout
+        };
+        parsedData[rId].systems.push(system);
+      });
+
+      stArray.forEach(row => {
+        const sId = row['路線系統ID'];
+        if (!sId) return;
+        for (const rId in parsedData) {
+          const sys = parsedData[rId].systems.find(s => s.id === sId);
+          if (sys) {
+            sys.lines[0].stations.push({
+              id: row['站點ID'],
+              name: row['站點名稱'],
+              enName: row['英文標示'],
+              isTransfer: String(row['是否為轉乘點']).trim().toUpperCase() === 'TRUE',
+              transferTo: row['轉乘資訊'] ? row['轉乘資訊'].split(',').map(s=>s.trim()) : [],
+              desc: row['站點描述'],
+              image: row['站點圖片'] || '',
+              attractions: row['徒步指引'] ? row['徒步指引'].split(',').map(s=>s.trim()) : [],
+              mapUrl: row['GoogleMap連結']?.trim() || '' 
+            });
+            break;
+          }
+        }
+      });
+
+      return parsedData;
+    };
+
+    // --- 頁面 1：路線簡介 ---
+    const OverviewTab = ({ system }) => (
+      <div className="h-full w-full overflow-y-auto bg-gray-50 relative pb-6">
+        <div className={`relative ${system.themeColor} text-white p-6 md:p-12 pt-10 md:pt-16 pb-16 md:pb-24 overflow-hidden md:rounded-b-[3rem] rounded-b-3xl shadow-lg flex-shrink-0 transition-colors duration-500`}>
+          <div className="absolute top-0 right-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
+             <Icon name="footprints" className="w-64 h-64 md:w-96 md:h-96" />
+          </div>
+          <div className="max-w-4xl mx-auto relative z-10">
+            <h1 className="text-3xl md:text-5xl font-black mb-2">{system.name}</h1>
+            <p className="text-white/80 font-medium tracking-widest text-sm md:text-base mb-4">{system.overview.title}</p>
+            
+            <div className="bg-black/10 p-4 rounded-xl border border-white/20 mb-4 inline-block backdrop-blur-sm">
+              <p className="text-white font-bold italic">"Walk fullder ,where blessings grow."</p>
+              <p className="text-white/90 text-sm mt-1">一條走向福德的路，一種讓祝福在土地上結果的行走方式。</p>
+            </div>
+            
+            <p className="md:mt-4 text-white/90 leading-relaxed text-sm md:text-lg max-w-2xl">{system.overview.desc}</p>
+          </div>
+        </div>
+
+        <div className="px-5 md:px-8 -mt-8 md:-mt-12 pb-12 relative z-20 space-y-6 max-w-4xl mx-auto">
+          <section className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 mb-4">
+              <Icon name="map" className={`w-6 h-6 ${system.textColor}`} />
+              <h2 className="text-xl md:text-2xl font-bold text-gray-800">路線資訊</h2>
+            </div>
+            <div className="space-y-6 md:space-y-8 relative before:absolute before:inset-0 before:ml-3 md:before:ml-3.5 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 before:to-transparent mt-6">
+              {system.overview.history.map((hist, idx) => (
+                <div key={idx} className="relative flex items-start group">
+                  <div className={`flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full border-2 border-white ${system.themeColor} shadow shrink-0 mt-0.5 md:mt-0`}>
+                    <Icon name="leaf" className="w-3 h-3 md:w-4 md:h-4 text-white" />
+                  </div>
+                  <div className="pl-4 md:pl-6 text-sm md:text-base">
+                    <span className="font-bold text-gray-800 text-base md:text-lg">{hist.title}</span>
+                    <p className="text-gray-500 text-sm md:text-base mt-1 md:mt-2">【{hist.year}】{hist.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+
+    // --- 頁面 2：徒步路線 ---
+    const RoutesTab = ({ system }) => {
+      const [activeLine, setActiveLine] = useState(system.lines[0]);
+      const [selectedStation, setSelectedStation] = useState(system.lines[0]?.stations[0]);
+      const [isSheetExpanded, setIsSheetExpanded] = useState(false);
+
+      useEffect(() => {
+        setActiveLine(system.lines[0]);
+        setSelectedStation(system.lines[0]?.stations[0]);
+        setIsSheetExpanded(false);
+      }, [system]);
+
+      if(!selectedStation) return <div className="p-8 text-center text-gray-500 font-bold">此路線尚未加入任何站點資料。</div>;
+
+      return (
+        <div className="h-full w-full flex flex-col md:flex-row bg-gray-50 relative overflow-hidden">
+          <div className="flex-1 flex flex-col h-full relative">
+            <header className="bg-white px-5 pt-4 pb-4 md:py-6 md:px-8 shadow-sm z-20 flex-shrink-0">
+              <h2 className="text-xl md:text-2xl font-black text-gray-800 mb-3 md:mb-4">徒步路線</h2>
+              <div className="flex bg-gray-100 p-1 rounded-lg overflow-x-auto hide-scrollbar">
+                {system.lines.map(line => (
+                  <button
+                    key={line.id}
+                    onClick={() => { setActiveLine(line); setSelectedStation(line.stations[0]); setIsSheetExpanded(false); }}
+                    className={`flex-1 min-w-[100px] py-2 md:py-2.5 text-sm md:text-base font-bold rounded-md transition-all whitespace-nowrap px-2 ${activeLine.id === line.id ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    {line.name}
+                  </button>
+                ))}
+              </div>
+            </header>
+
+            <main className="flex-1 overflow-y-auto px-6 md:px-8 py-4 pb-32 md:pb-8">
+              <div className="relative min-h-full pb-8 max-w-xl mx-auto md:ml-0 md:max-w-full">
+                <div className="absolute top-4 bottom-8 left-[1.375rem] md:left-[1.625rem] border-l-4 border-dashed border-gray-300 z-0 opacity-50 ml-[1px]"></div>
+                <div className={`absolute top-4 left-[1.375rem] md:left-[1.625rem] border-l-4 border-dashed ${activeLine.lineColor} ml-[1px] z-0 transition-all duration-500`} style={{height: `${activeLine.stations.length > 1 ? (activeLine.stations.findIndex(s => s.id === selectedStation.id) / (activeLine.stations.length - 1)) * 100 : 0}%`}}></div>
+                
+                <div className="space-y-6 md:space-y-8 relative z-10">
+                  {activeLine.stations.map((station) => {
+                    const isSelected = selectedStation.id === station.id;
+                    return (
+                      <div 
+                        key={station.id} 
+                        className="flex items-center group cursor-pointer" 
+                        onClick={() => {
+                          setSelectedStation(station);
+                          setIsSheetExpanded(true); 
+                        }}
+                      >
+                        <div className="w-12 md:w-14 flex-shrink-0 flex justify-center bg-white rounded-full py-2">
+                          <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full border-4 border-white shadow-sm transition-all duration-300 ${isSelected ? `${activeLine.color} scale-125 ring-4 ring-${activeLine.color}/30` : 'bg-gray-300 group-hover:bg-gray-400'} ${station.isTransfer && !isSelected ? 'bg-white border-4 !border-gray-800' : ''}`} />
+                        </div>
+                        <div className={`flex-1 pl-4 md:pl-6 py-3 md:py-4 rounded-2xl transition-all ${isSelected ? 'bg-white shadow-md border border-gray-200' : 'hover:bg-gray-200/50 border border-transparent'}`}>
+                          <div className="flex justify-between items-center pr-3 md:pr-5">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[10px] md:text-xs font-bold px-2 py-0.5 md:py-1 rounded-full bg-gray-100 text-gray-500 ${isSelected ? activeLine.textColor : ''}`}>{station.id}</span>
+                                <h3 className={`text-lg md:text-xl font-bold ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>{station.name}</h3>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 items-center md:hidden">
+                              <a href={selectedStation.mapUrl || getMapUrl(station.name)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className={`p-2 rounded-full inline-flex transition-colors ${isSelected ? `${system.lightBg} ${system.textColor}` : 'bg-gray-100 text-gray-400'}`}>
+                                <Icon name="map-pin" className="w-4 h-4" />
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </main>
+          </div>
+
+          <div className="
+            md:static md:w-80 lg:w-[400px] md:h-full md:border-l md:border-gray-200 md:rounded-none md:shadow-[-4px_0_20px_rgba(0,0,0,0.03)] md:transform-none md:flex md:flex-col
+            absolute bottom-0 left-0 right-0 bg-white shadow-[0_-10px_40px_rgba(0,0,0,0.15)] rounded-t-3xl border-t border-gray-100 z-30 transition-transform
+          ">
+            <div 
+              className="cursor-pointer md:cursor-default" 
+              onClick={() => setIsSheetExpanded(!isSheetExpanded)}
+            >
+              <div className="md:hidden w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 mb-2"></div>
+              
+              <div className="px-5 md:px-8 pt-1 md:pt-8 pb-4 flex items-start justify-between shrink-0">
+                <div>
+                  <div className={`inline-block text-xs md:text-sm font-bold px-2 py-1 md:px-3 md:py-1.5 rounded-full text-white ${activeLine.color} mb-2`}>停留點 {selectedStation.id}</div>
+                  <h2 className="text-2xl md:text-3xl font-black text-gray-900 leading-none mt-1">{selectedStation.name}</h2>
+                </div>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <a href={selectedStation.mapUrl || getMapUrl(selectedStation.name)} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className={`flex items-center gap-1.5 md:gap-2 ${system.lightBg} ${system.textColor} px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-bold hover:opacity-80 transition-opacity shrink-0`}>
+                    <span>地圖</span><Icon name="external-link" className="w-3 h-3 md:w-4 md:h-4" />
+                  </a>
+                  <span className="md:hidden text-[10px] text-gray-400 font-bold flex items-center gap-1">
+                    {isSheetExpanded ? '收起' : '展開詳情'} <Icon name={isSheetExpanded ? 'chevron-down' : 'chevron-up'} className="w-3 h-3" />
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className={`
+              flex flex-col transition-all duration-300 ease-in-out
+              ${isSheetExpanded ? 'max-h-[60vh] opacity-100 pb-6' : 'max-h-0 opacity-0 pb-0 md:max-h-none md:opacity-100 md:pb-8'}
+            `}>
+              <div className="px-5 md:px-8 overflow-y-auto flex flex-col h-full hide-scrollbar">
+                <div className="w-full h-px bg-gray-100 mb-4 md:mb-6 hidden md:block shrink-0"></div>
+                
+                <p className="text-gray-600 text-sm md:text-base leading-relaxed md:leading-loose mb-6 shrink-0">{selectedStation.desc}</p>
+                
+                <div className="flex flex-col gap-3 md:gap-4 mt-auto md:mt-0 shrink-0">
+                  {selectedStation.isTransfer && (
+                    <div className="flex items-center gap-3 bg-amber-50 rounded-xl p-3 md:p-4">
+                      <div className="bg-amber-100 p-2 rounded-lg text-amber-600"><Icon name="footprints" className="w-5 h-5" /></div>
+                      <div>
+                        <p className="text-[10px] md:text-xs text-amber-500 font-bold mb-0.5">路線動態</p>
+                        <span className="text-sm md:text-base font-bold text-amber-800">{selectedStation.transferTo.join(', ')}</span>
+                      </div>
+                    </div>
+                  )}
+                  {selectedStation.attractions && selectedStation.attractions.length > 0 && (
+                    <div className="flex items-center gap-3 bg-emerald-50 rounded-xl p-3 md:p-4">
+                      <div className="bg-emerald-100 p-2 rounded-lg text-emerald-600"><Icon name="compass" className="w-5 h-5" /></div>
+                      <div>
+                        <p className="text-[10px] md:text-xs text-emerald-500 font-bold mb-0.5">徒步指引</p>
+                        <span className="text-sm md:text-base font-bold text-emerald-800">{selectedStation.attractions.join(', ')}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- 頁面 3：行腳活動 ---
+    const EventsTab = ({ system }) => {
+      const { events, lightBg, textColor, buttonColor } = system;
+      return (
+        <div className="h-full w-full overflow-y-auto bg-gray-50">
+          <header className="bg-white px-5 md:px-10 pt-8 md:pt-12 pb-4 md:pb-6 shadow-sm z-20 sticky top-0">
+            <div className="max-w-4xl mx-auto">
+              <h2 className="text-2xl md:text-3xl font-black text-gray-800">行腳活動</h2>
+              <p className="text-sm md:text-base text-gray-500 mt-1 md:mt-2">跟著 Fullder Go 一起走出祝福</p>
+            </div>
+          </header>
+
+          <div className="p-5 md:p-10 max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 pb-12">
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <Icon name="sun" className={`w-6 h-6 ${textColor}`} /> 焦點行腳
+                </h3>
+                <span className="bg-red-100 text-red-600 text-xs md:text-sm font-bold px-2 py-1 rounded-md flex items-center gap-1 animate-pulse">
+                  <Icon name="clock" className="w-4 h-4" /> 報名中
+                </span>
+              </div>
+              
+              <div className="bg-white rounded-3xl overflow-hidden shadow-md border border-gray-100 transition-transform hover:-translate-y-1">
+                <SmartImage src={events.latest.img} alt={events.latest.imgAlt} className="w-full h-48 md:h-56 object-cover" />
+                <div className="p-6 md:p-8">
+                  <h4 className="text-xl md:text-2xl font-black text-gray-900 mb-3">{events.latest.title}</h4>
+                  <p className="text-sm md:text-base text-gray-600 mb-6 leading-relaxed">{events.latest.desc}</p>
+                  <div className="flex items-center gap-2 text-sm text-gray-500 mb-6 font-medium bg-gray-50 p-3 rounded-lg">
+                    <Icon name="calendar" className="w-5 h-5 text-gray-400" /> {events.latest.date}
+                  </div>
+                  <button className={`w-full ${buttonColor} text-white text-base md:text-lg font-bold py-4 rounded-xl transition-all shadow-lg hover:shadow-xl hover:opacity-90 active:scale-[0.98]`}>
+                    立即報名參加
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-6">
+                <Icon name="check-circle" className="w-6 h-6 text-emerald-500" /> 歷史足跡
+              </h3>
+              
+              <div className="relative border-l-2 border-gray-200 ml-4 space-y-8 pb-4">
+                {events.history.map((event, idx) => (
+                  <div key={idx} className="relative pl-8">
+                    <div className="absolute w-4 h-4 bg-gray-300 rounded-full -left-[9px] top-1.5 border-[3px] border-white shadow-sm"></div>
+                    <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                      <span className="text-xs md:text-sm font-bold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">{event.year}</span>
+                      <h4 className="text-lg md:text-xl font-bold text-gray-800 mt-3 mb-2">{event.title}</h4>
+                      <p className="text-sm md:text-base text-gray-600 leading-relaxed">{event.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        </div>
+      );
+    };
+
+    // --- 頁面 4：關於我們 (固定品牌樣式) ---
+    const AboutTab = ({ system }) => {
+      const { about } = system;
+      const fixedThemeColor = "bg-stone-800"; // 固定的背景顏色
+      const fixedTextColor = "text-stone-800"; // 固定的文字顏色
+
+      return (
+        <div className="h-full w-full overflow-y-auto bg-gray-50">
+          <header className={`${fixedThemeColor} text-white px-5 md:px-10 pt-12 md:pt-16 pb-12 md:pb-20 shadow-md rounded-b-[3rem] transition-colors duration-500 relative overflow-hidden`}>
+            <div className="absolute bottom-0 right-0 opacity-20 transform translate-y-1/4">
+                <SmartImage src={about.image} alt="土地公聖像" className="w-48 md:w-80" mask={true} />
+            </div>
+            <div className="max-w-3xl mx-auto relative z-10">
+              <h2 className="text-3xl md:text-4xl font-black mb-2">關於我們</h2>
+              <p className="text-white/70 text-base md:text-lg">{about.company}</p>
+            </div>
+          </header>
+
+          <div className="p-5 md:p-10 -mt-8 md:-mt-12 relative z-10 pb-12 max-w-3xl mx-auto space-y-6">
+            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100">
+              <h3 className="text-xl font-bold text-gray-800 mb-3 md:mb-4 flex items-center gap-2">
+                <Icon name="book-open" className={`w-6 h-6 ${fixedTextColor}`} /> 品牌精神
+              </h3>
+              <p className="text-base md:text-lg text-gray-600 leading-relaxed md:leading-loose whitespace-pre-line">{about.desc}</p>
+            </div>
+
+            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 md:mb-6 border-b border-gray-100 pb-4">聯絡資訊</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <a href={`tel:${about.phoneRaw}`} className="flex items-center gap-4 p-3 md:p-4 hover:bg-gray-50 rounded-2xl transition-colors group">
+                  <div className="bg-blue-50 p-3 md:p-4 rounded-full text-blue-600 group-hover:bg-blue-100 transition-colors"><Icon name="phone" className="w-5 h-5 md:w-6 md:h-6" /></div>
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-400 font-bold mb-1">客服專線</p>
+                    <p className="text-base md:text-xl font-black text-gray-800 tracking-wide">{about.phone}</p>
+                  </div>
+                </a>
+                <a href={`mailto:${about.email}`} className="flex items-center gap-4 p-3 md:p-4 hover:bg-gray-50 rounded-2xl transition-colors group">
+                  <div className="bg-orange-50 p-3 md:p-4 rounded-full text-orange-600 group-hover:bg-orange-100 transition-colors"><Icon name="mail" className="w-5 h-5 md:w-6 md:h-6" /></div>
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-400 font-bold mb-1">聯絡信箱</p>
+                    <p className="text-base md:text-lg font-bold text-gray-800">{about.email}</p>
+                  </div>
+                </a>
+              </div>
+              <div className="flex items-center gap-4 p-3 md:p-4 group">
+                <div className="bg-emerald-50 p-3 md:p-4 rounded-full text-emerald-600"><Icon name="map-pin" className="w-5 h-5 md:w-6 md:h-6" /></div>
+                <div>
+                  <p className="text-xs md:text-sm text-gray-400 font-bold mb-1">發源地</p>
+                  <p className="text-base md:text-lg font-bold text-gray-800 leading-tight">{about.address}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- 主應用程式 ---
+    function App() {
+      const [activeTab, setActiveTab] = useState('overview');
+      const [fullderData, setFullderData] = useState(null);
+      const [currentSystem, setCurrentSystem] = useState(null);
+      
+      const [isPickerOpen, setIsPickerOpen] = useState(false);
+      const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+      
+      const [sysFile, setSysFile] = useState(null);
+      const [stFile, setStFile] = useState(null);
+      const [astFile, setAstFile] = useState(null);
+      
+      const [tempSystems, setTempSystems] = useState([]);
+      const [tempStations, setTempStations] = useState([]);
+      const [tempAssets, setTempAssets] = useState([]);
+
+      const [isLoading, setIsLoading] = useState(true);
+      const [loadError, setLoadError] = useState(null);
+
+      // --- 自動讀取本地 CSV 功能 ---
+      useEffect(() => {
+        Promise.all([
+          fetch('systems.csv').then(res => { if(!res.ok) throw new Error('systems'); return res.text(); }),
+          fetch('stations.csv').then(res => { if(!res.ok) throw new Error('stations'); return res.text(); }),
+          fetch('assets.csv').then(res => res.ok ? res.text() : null).catch(() => null) // assets.csv 為選填
+        ])
+        .then(([sysText, stText, astText]) => {
+          let currentAssets = { ...DEFAULT_ASSETS };
+          
+          if (astText) {
+            const astParsed = Papa.parse(astText, { header: true, skipEmptyLines: true }).data;
+            astParsed.forEach(row => {
+              const key = row['鍵值']?.trim();
+              const file = row['檔案名稱']?.trim();
+              if (key && file && key !== 'APP_ICON') { // 保護 APP_ICON 不被覆蓋
+                currentAssets[key] = file;
+              }
+            });
+          }
+
+          const sysParsed = Papa.parse(sysText, { header: true, skipEmptyLines: true }).data;
+          const stParsed = Papa.parse(stText, { header: true, skipEmptyLines: true }).data;
+
+          const mergedData = mergeCsvData(sysParsed, stParsed, currentAssets);
+          
+          if (Object.keys(mergedData).length > 0) {
+            setFullderData(mergedData);
+            const firstRegion = Object.values(mergedData)[0];
+            setCurrentSystem(firstRegion.systems[0]);
+            setLoadError(null);
+          } else {
+            setLoadError('CSV 內無有效的路線資料，請確認檔案格式是否正確。');
+          }
+          setIsLoading(false);
+        })
+        .catch(err => {
+          console.warn("自動抓取失敗:", err);
+          setLoadError('瀏覽器安全限制阻擋了自動讀取本地檔案。請點擊下方按鈕直接手動匯入您的 CSV 檔案。');
+          setIsLoading(false);
+        });
+      }, []); 
+
+      // 手動上傳 CSV 檔案讀取
+      const handleFileParse = (e, type) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (type === 'systems') setSysFile(file);
+        if (type === 'stations') setStFile(file);
+        if (type === 'assets') setAstFile(file);
+
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            if (type === 'systems') setTempSystems(results.data);
+            if (type === 'stations') setTempStations(results.data);
+            if (type === 'assets') setTempAssets(results.data);
+          },
+          error: (err) => {
+            alert(`讀取${type}檔案失敗：` + err.message);
+          }
+        });
+        e.target.value = '';
+      };
+
+      // 手動執行合併與匯入
+      const handleImportSubmit = () => {
+        try {
+          let currentAssets = { ...DEFAULT_ASSETS };
+          if (tempAssets && tempAssets.length > 0) {
+            tempAssets.forEach(row => {
+              const key = row['鍵值']?.trim();
+              const file = row['檔案名稱']?.trim();
+              if (key && file && key !== 'APP_ICON') { // 保護 APP_ICON 不被覆蓋
+                currentAssets[key] = file;
+              }
+            });
+          }
+
+          const mergedData = mergeCsvData(tempSystems, tempStations, currentAssets);
+          
+          if (Object.keys(mergedData).length > 0) {
+            setFullderData(mergedData);
+            const firstRegion = Object.values(mergedData)[0];
+            setCurrentSystem(firstRegion.systems[0]);
+            setLoadError(null); 
+            setIsImportModalOpen(false);
+            
+            // 清除暫存狀態
+            setSysFile(null); setStFile(null); setAstFile(null);
+            setTempSystems([]); setTempStations([]); setTempAssets([]);
+            
+            alert("✅ 路線與圖檔資料匯入成功！");
+          } else {
+            alert("⚠️ CSV 格式錯誤或無效資料");
+          }
+        } catch (e) {
+          console.error(e);
+          alert("❌ 合併資料發生錯誤，請確認 CSV 檔案是否正確對應");
+        }
+      };
+
+      const NAV_ITEMS = [
+        { id: 'overview', label: '路線簡介', icon: 'leaf' },
+        { id: 'routes', label: '徒步路線', icon: 'map' },
+        { id: 'events', label: '行腳活動', icon: 'sun' },
+        { id: 'about', label: '關於我們', icon: 'users' },
+      ];
+
+      const sysThemeColor = currentSystem ? currentSystem.themeColor : 'bg-gray-800';
+      const sysLightBg = currentSystem ? currentSystem.lightBg : 'bg-gray-100';
+      const sysTextColor = currentSystem ? currentSystem.textColor : 'text-gray-800';
+
+      return (
+        <div className="h-screen w-full flex flex-col md:flex-row bg-gray-100 font-sans text-gray-800 overflow-hidden">
+          
+          {/* 電腦版導覽列 */}
+          <nav className="hidden md:flex flex-col w-24 lg:w-28 bg-white border-r border-gray-200 z-40 shadow-sm py-6">
+            <div className="flex flex-col items-center mb-8 px-2">
+              <div className="w-16 h-16 mb-1 shrink-0 transition-transform hover:scale-105 rounded-full shadow-sm bg-white overflow-hidden">
+                <SmartImage src={DEFAULT_ASSETS.APP_ICON} alt="Fullder Go Logo" className="w-full h-full object-cover" />
+              </div>
+            </div>
+            <div className="flex-1 flex flex-col gap-6 px-3">
+              {NAV_ITEMS.map((item) => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button key={item.id} onClick={() => { if(currentSystem) setActiveTab(item.id); }} className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-200 ${isActive && currentSystem ? `${sysLightBg} ${sysTextColor}` : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}>
+                    <Icon name={item.icon} className={`w-6 h-6 mb-2 ${isActive && currentSystem ? 'scale-110' : ''} transition-transform`} />
+                    <span className={`text-[11px] font-bold`}>{item.label}</span>
+                  </button>
+                );
+              })}
+
+              {/* 匯入資料按鈕 (電腦版) */}
+              <button onClick={() => setIsImportModalOpen(true)} className="flex flex-col items-center justify-center p-3 mt-auto rounded-2xl text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-all duration-200">
+                <Icon name="upload-cloud" className="w-6 h-6 mb-2 transition-transform hover:-translate-y-1" />
+                <span className="text-[11px] font-bold">匯入資料</span>
+              </button>
+            </div>
+          </nav>
+
+          {/* 主內容區塊 */}
+          <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-white md:bg-gray-50 md:rounded-l-3xl md:shadow-[-10px_0_30px_rgba(0,0,0,0.05)]">
+            
+            {isLoading ? (
+               <div className="flex-1 flex flex-col items-center justify-center">
+                 <Icon name="loader-2" className="w-10 h-10 text-gray-400 animate-spin mb-4" />
+                 <p className="text-gray-500 font-bold">載入路線資料中...</p>
+               </div>
+            ) : loadError || !currentSystem ? (
+               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center h-full bg-white md:bg-gray-50 md:rounded-l-3xl">
+                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                    <Icon name="file-warning" className="w-12 h-12 text-gray-400" />
+                 </div>
+                 <h2 className="text-2xl font-black text-gray-800 mb-3">資料載入失敗</h2>
+                 <p className="text-gray-500 mb-8 max-w-md leading-relaxed">{loadError}</p>
+                 <button onClick={() => setIsImportModalOpen(true)} className="px-8 py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-colors shadow-xl active:scale-95 flex items-center gap-2">
+                    <Icon name="upload-cloud" className="w-5 h-5" />
+                    手動匯入 CSV 檔案
+                 </button>
+               </div>
+            ) : (
+               <>
+                <div className="bg-white md:bg-transparent border-b md:border-b-0 border-gray-100 px-4 md:px-8 py-3 md:py-6 flex items-center justify-between z-40 cursor-pointer active:opacity-70 transition-opacity" onClick={() => setIsPickerOpen(true)}>
+                  <div className="flex items-center gap-3">
+                    <div className="md:hidden w-12 h-12 shrink-0 rounded-full shadow-sm bg-white overflow-hidden">
+                      <SmartImage src={DEFAULT_ASSETS.APP_ICON} alt="Fullder Go Logo" className="w-full h-full object-cover" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] md:text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">切換區域與路線</p>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base md:text-2xl font-black text-gray-900 leading-none">{currentSystem.name}</h2>
+                        <Icon name="chevron-down" className="w-4 h-4 md:w-5 md:h-5 text-gray-400" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex-1 overflow-hidden relative">
+                  {activeTab === 'overview' && <OverviewTab system={currentSystem} />}
+                  {activeTab === 'routes' && <RoutesTab system={currentSystem} />}
+                  {activeTab === 'events' && <EventsTab system={currentSystem} />}
+                  {activeTab === 'about' && <AboutTab system={currentSystem} />}
+                </div>
+              </>
+            )}
+
+            {/* 手機版導覽列 */}
+            <nav className="md:hidden h-[64px] bg-white border-t border-gray-200 grid grid-cols-5 items-center flex-shrink-0 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] pb-safe">
+              {NAV_ITEMS.map((item) => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button key={item.id} onClick={() => { if(currentSystem) setActiveTab(item.id); }} className={`flex flex-col items-center justify-center w-full h-full transition-all duration-200 ${isActive && currentSystem ? sysTextColor : 'text-gray-400'}`}>
+                    <div className={`relative mb-1 p-1 rounded-full transition-all ${isActive && currentSystem ? sysLightBg : ''}`}>
+                      <Icon name={item.icon} className={`w-6 h-6 ${isActive && currentSystem ? 'scale-110' : ''} transition-transform`} />
+                    </div>
+                    <span className={`text-[10px] font-bold`}>{item.label}</span>
+                  </button>
+                );
+              })}
+              
+              {/* 匯入資料按鈕 (手機版) */}
+              <button onClick={() => setIsImportModalOpen(true)} className="flex flex-col items-center justify-center w-full h-full text-gray-400 transition-all duration-200">
+                <div className="relative mb-1 p-1 rounded-full transition-all">
+                  <Icon name="upload-cloud" className="w-6 h-6 transition-transform" />
+                </div>
+                <span className="text-[10px] font-bold">匯入</span>
+              </button>
+            </nav>
+
+            {/* 路線切換選單 */}
+            {isPickerOpen && currentSystem && (
+              <div className="absolute inset-0 z-50 flex flex-col justify-end md:justify-center md:items-center md:p-6">
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsPickerOpen(false)}></div>
+                <div className="bg-white rounded-t-3xl md:rounded-3xl relative z-10 animate-slide-up md:animate-fade-in-scale shadow-2xl flex flex-col w-full max-h-[85vh] md:max-w-3xl md:max-h-[80vh]">
+                  <div className="flex items-center justify-between p-5 md:p-6 border-b border-gray-100">
+                    <h3 className="text-xl md:text-2xl font-black text-gray-900">選擇福德果路線</h3>
+                    <button onClick={() => setIsPickerOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-600 hover:bg-gray-200 transition-colors">
+                      <Icon name="x" className="w-5 h-5 md:w-6 md:h-6" />
+                    </button>
+                  </div>
+                  <div className="overflow-y-auto p-5 md:p-8 space-y-8">
+                    {Object.values(fullderData).map(region => (
+                      <div key={region.id}>
+                        <div className="flex items-center gap-3 mb-4">
+                          <h4 className="text-sm md:text-base font-black text-gray-400 tracking-widest">{region.name}</h4>
+                          <div className="flex-1 h-px bg-gray-100"></div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                          {region.systems.map(sys => (
+                            <button 
+                              key={sys.id} 
+                              onClick={() => { setCurrentSystem(sys); setIsPickerOpen(false); setActiveTab('routes'); }} 
+                              className={`text-left p-4 md:p-5 rounded-2xl border-2 transition-all duration-200 flex flex-col overflow-hidden relative ${currentSystem.id === sys.id ? `border-transparent ${sys.themeColor} text-white shadow-lg md:scale-105` : 'border-gray-100 bg-white hover:border-gray-300 hover:bg-gray-50 text-gray-800 shadow-sm'}`}
+                            >
+                              <Icon name={sys.icon || 'footprints'} className={`relative z-10 w-6 h-6 md:w-8 md:h-8 mb-2 md:mb-3 ${currentSystem.id === sys.id ? 'text-white/80' : sys.textColor}`} />
+                              <p className="relative z-10 font-bold text-base md:text-lg leading-tight">{sys.name}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 匯入 CSV 專用面板 (加入圖檔設定上傳) */}
+            {isImportModalOpen && (
+              <div className="absolute inset-0 z-[60] flex items-center justify-center p-4">
+                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsImportModalOpen(false)}></div>
+                 <div className="bg-white rounded-3xl relative z-10 w-full max-w-md p-6 shadow-2xl animate-fade-in-scale">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl"><Icon name="database" className="w-6 h-6" /></div>
+                      <h3 className="text-xl md:text-2xl font-black">匯入路線與站點</h3>
+                    </div>
+                    
+                    <div className="space-y-3 mb-6">
+                      {/* 1. 上傳路線系統 */}
+                      <label className={`block p-3 border-2 border-dashed rounded-xl transition-colors cursor-pointer ${sysFile ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${sysFile ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}><Icon name="map" className="w-5 h-5"/></div>
+                            <div>
+                              <p className="font-bold text-gray-800 text-sm">1. 路線系統 (Systems)</p>
+                              <p className={`text-[11px] mt-0.5 font-medium ${sysFile ? 'text-emerald-600' : 'text-gray-400'}`}>{sysFile ? sysFile.name : '必填，請選擇 CSV 檔案'}</p>
+                            </div>
+                          </div>
+                          {sysFile && <Icon name="check-circle" className="w-5 h-5 text-emerald-500"/>}
+                        </div>
+                        <input type="file" accept=".csv" className="hidden" onChange={e => handleFileParse(e, 'systems')} />
+                      </label>
+
+                      {/* 2. 上傳站點資訊 */}
+                      <label className={`block p-3 border-2 border-dashed rounded-xl transition-colors cursor-pointer ${stFile ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${stFile ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}><Icon name="map-pin" className="w-5 h-5"/></div>
+                            <div>
+                              <p className="font-bold text-gray-800 text-sm">2. 站點資料 (Stations)</p>
+                              <p className={`text-[11px] mt-0.5 font-medium ${stFile ? 'text-blue-600' : 'text-gray-400'}`}>{stFile ? stFile.name : '必填，請選擇 CSV 檔案'}</p>
+                            </div>
+                          </div>
+                          {stFile && <Icon name="check-circle" className="w-5 h-5 text-blue-500"/>}
+                        </div>
+                        <input type="file" accept=".csv" className="hidden" onChange={e => handleFileParse(e, 'stations')} />
+                      </label>
+
+                      {/* 3. 上傳圖檔設定 (選填) */}
+                      <label className={`block p-3 border-2 border-dashed rounded-xl transition-colors cursor-pointer ${astFile ? 'border-amber-400 bg-amber-50' : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${astFile ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-500'}`}><Icon name="image" className="w-5 h-5"/></div>
+                            <div>
+                              <p className="font-bold text-gray-800 text-sm">3. 圖檔設定 (Assets) - <span className="text-xs text-gray-400 font-normal">選填</span></p>
+                              <p className={`text-[11px] mt-0.5 font-medium ${astFile ? 'text-amber-600' : 'text-gray-400'}`}>{astFile ? astFile.name : '未選擇則使用預設圖檔'}</p>
+                            </div>
+                          </div>
+                          {astFile && <Icon name="check-circle" className="w-5 h-5 text-amber-500"/>}
+                        </div>
+                        <input type="file" accept=".csv" className="hidden" onChange={e => handleFileParse(e, 'assets')} />
+                      </label>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button onClick={() => setIsImportModalOpen(false)} className="flex-1 py-3 font-bold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">取消</button>
+                      <button 
+                        onClick={handleImportSubmit} 
+                        disabled={!sysFile || !stFile}
+                        className={`flex-1 py-3 font-bold text-white rounded-xl transition-colors shadow-sm ${sysFile && stFile ? 'bg-gray-900 hover:bg-gray-800' : 'bg-gray-300 cursor-not-allowed'}`}
+                      >
+                        確認匯入
+                      </button>
+                    </div>
+                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
