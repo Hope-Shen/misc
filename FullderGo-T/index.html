@@ -35,12 +35,17 @@
       from { opacity: 0; transform: scale(0.95); }
       to { opacity: 1; transform: scale(1); }
     }
+    @keyframes shimmer {
+      0% { transform: translateX(-150%) skewX(-15deg); }
+      100% { transform: translateX(300%) skewX(-15deg); }
+    }
     .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
     .animate-fade-in-scale { animation: fadeInScale 0.2s ease-out forwards; }
+    .animate-shimmer { animation: shimmer 2.5s infinite linear; }
     
     body {
       margin: 0;
-      background-color: #f3f4f6;
+      background-color: #f3f4f6; /* 恢復原本的淺灰背景 */
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
@@ -110,9 +115,9 @@
         );
     };
 
-    // --- 動態獲取品牌內容 (讓資料套用新的 assets) ---
+    // --- 動態獲取品牌內容 (固定的品牌精神文字) ---
     const getBrandAbout = (assets) => ({
-      company: 'fulldergo (福德果)',
+      company: 'FullderGo (福德果)',
       desc: '「Walk fullder ,where blessings grow.」\n\n一條走向福德的路，一種讓祝福在土地上結果的行走方式。當人走在土地上，福與德，會慢慢結果。我們致力於推廣徒步探訪土地公廟的行腳體驗，讓身心在自然與信仰中獲得平靜與祝福。',
       phone: '0900-000-000', phoneRaw: '0900000000',
       email: 'hello@fulldergo.com', address: '台灣 (Taiwan)',
@@ -124,7 +129,7 @@
       return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleanName)}`;
     };
 
-    // --- CSV 資料合併處理邏輯 (結合動態圖檔設定) ---
+    // --- CSV 資料合併處理邏輯 ---
     const mergeCsvData = (sysArray, stArray, assets, evArray = []) => {
       const parsedData = {};
       const currentBrandAbout = getBrandAbout(assets);
@@ -174,13 +179,26 @@
         evArray.forEach(ev => {
           if (ev['路線系統ID'] === sId) {
             if (ev['活動類型'] === '焦點') {
+              let status = ev['狀態'] || '報名中';
+              let deadline = ev['報名截止日'] ? ev['報名截止日'].trim() : '';
+
+              // 自動判斷是否已經超過截止日期
+              if (deadline) {
+                const safeDeadline = deadline.replace(/-/g, '/');
+                const deadlineDate = new Date(safeDeadline + ' 23:59:59');
+                if (!isNaN(deadlineDate.getTime()) && new Date() > deadlineDate) {
+                  status = '結束報名';
+                }
+              }
+
               system.events.latest = {
                 title: ev['活動標題'],
                 desc: ev['活動描述'],
                 date: ev['活動日期'],
+                deadline: deadline,
                 img: ev['活動圖片'] || assets.TEMPLE_PORCH,
                 link: ev['報名連結'] || '#',
-                status: ev['狀態'] || '報名中'
+                status: status
               };
             } else if (ev['活動類型'] === '歷史') {
               system.events.history.push({
@@ -198,6 +216,7 @@
             title: '近期尚無焦點活動',
             desc: '目前此路線正在籌備新的行腳活動，敬請期待。',
             date: '即將推出',
+            deadline: '',
             img: assets.TEMPLE_PORCH,
             link: '#',
             status: '籌備中'
@@ -288,12 +307,12 @@
         setIsSheetExpanded(false);
       }, [system]);
 
-      if(!selectedStation) return <div className="p-8 text-center text-gray-500 font-bold">此路線尚未加入任何站點資料。</div>;
+      if(!selectedStation) return <div className="p-8 text-center text-gray-500 font-bold h-full bg-gray-50">此路線尚未加入任何站點資料。</div>;
 
       return (
         <div className="h-full w-full flex flex-col md:flex-row bg-gray-50 relative overflow-hidden">
           <div className="flex-1 flex flex-col h-full relative">
-            <header className="bg-white px-5 pt-4 pb-4 md:py-6 md:px-8 shadow-sm z-20 flex-shrink-0">
+            <header className="bg-white px-5 pt-4 pb-4 md:py-6 md:px-8 shadow-sm z-20 flex-shrink-0 border-b border-gray-100">
               <h2 className="text-xl md:text-2xl font-black text-gray-800 mb-3 md:mb-4">徒步路線</h2>
               <div className="flex bg-gray-100 p-1 rounded-lg overflow-x-auto hide-scrollbar">
                 {system.lines.map(line => (
@@ -325,7 +344,7 @@
                           setIsSheetExpanded(true); 
                         }}
                       >
-                        <div className="w-12 md:w-14 flex-shrink-0 flex justify-center bg-white rounded-full py-2">
+                        <div className="w-12 md:w-14 flex-shrink-0 flex justify-center bg-transparent rounded-full py-2">
                           <div className={`w-5 h-5 md:w-6 md:h-6 rounded-full border-4 border-white shadow-sm transition-all duration-300 ${isSelected ? `${activeLine.color} scale-125 ring-4 ring-${activeLine.color}/30` : 'bg-gray-300 group-hover:bg-gray-400'} ${station.isTransfer && !isSelected ? 'bg-white border-4 !border-gray-800' : ''}`} />
                         </div>
                         <div className={`flex-1 pl-4 md:pl-6 py-3 md:py-4 rounded-2xl transition-all ${isSelected ? 'bg-white shadow-md border border-gray-200' : 'hover:bg-gray-200/50 border border-transparent'}`}>
@@ -416,9 +435,11 @@
     // --- 頁面 3：行腳活動 ---
     const EventsTab = ({ system }) => {
       const { events, lightBg, textColor, buttonColor } = system;
+      const isClosed = events.latest.status === '結束報名';
+
       return (
         <div className="h-full w-full overflow-y-auto bg-gray-50">
-          <header className="bg-white px-5 md:px-10 pt-8 md:pt-12 pb-4 md:pb-6 shadow-sm z-20 sticky top-0">
+          <header className="bg-white px-5 md:px-10 pt-8 md:pt-12 pb-4 md:pb-6 shadow-sm z-20 sticky top-0 border-b border-gray-100">
             <div className="max-w-4xl mx-auto">
               <h2 className="text-2xl md:text-3xl font-black text-gray-800">行腳活動</h2>
               <p className="text-sm md:text-base text-gray-500 mt-1 md:mt-2">跟著 Fullder Go 一起走出祝福</p>
@@ -437,15 +458,46 @@
               </div>
               
               <div className="bg-white rounded-3xl overflow-hidden shadow-md border border-gray-100 transition-transform hover:-translate-y-1">
-                <SmartImage src={events.latest.img} alt={events.latest.title} className="w-full h-48 md:h-56 object-cover" />
+                <SmartImage src={events.latest.img} alt={events.latest.imgAlt} className="w-full h-48 md:h-56 object-cover" />
                 <div className="p-6 md:p-8">
                   <h4 className="text-xl md:text-2xl font-black text-gray-900 mb-3">{events.latest.title}</h4>
                   <p className="text-sm md:text-base text-gray-600 mb-6 leading-relaxed">{events.latest.desc}</p>
-                  <div className="flex items-center gap-2 text-sm text-gray-500 mb-6 font-medium bg-gray-50 p-3 rounded-lg">
-                    <Icon name="calendar" className="w-5 h-5 text-gray-400" /> {events.latest.date}
+                  
+                  <div className="flex flex-col gap-2 mb-6">
+                    <div className="flex items-center gap-2 text-sm text-gray-500 font-medium bg-gray-50 p-3 rounded-lg">
+                      <Icon name="calendar" className="w-5 h-5 text-gray-400" /> 活動日期：{events.latest.date}
+                    </div>
+                    {/* 顯示截止日期 */}
+                    {events.latest.deadline && (
+                      <div className="flex items-center gap-2 text-sm text-orange-600 font-medium bg-orange-50 p-3 rounded-lg">
+                        <Icon name="alert-circle" className="w-5 h-5 text-orange-500" /> 報名截止：{events.latest.deadline}
+                      </div>
+                    )}
                   </div>
-                  <a href={events.latest.link} target={events.latest.link !== '#' ? "_blank" : "_self"} rel="noopener noreferrer" className={`block text-center w-full ${events.latest.link !== '#' ? buttonColor + ' text-white shadow-lg hover:shadow-xl hover:opacity-90 active:scale-[0.98]' : 'bg-gray-200 text-gray-500 cursor-not-allowed'} text-base md:text-lg font-bold py-4 rounded-xl transition-all`}>
-                    {events.latest.link !== '#' ? '立即報名參加' : '敬請期待'}
+
+                  {/* 升級版：更搶眼的立即報名按鈕 */}
+                  <a 
+                    href={isClosed ? '#' : events.latest.link} 
+                    target={!isClosed && events.latest.link !== '#' ? "_blank" : "_self"}
+                    rel="noopener noreferrer"
+                    onClick={(e) => { 
+                      if(isClosed) { e.preventDefault(); return; }
+                      if(events.latest.link === '#') { e.preventDefault(); alert('此活動尚未開放報名或未設定連結。'); } 
+                    }}
+                    className={`group relative flex items-center justify-center gap-2 overflow-hidden w-full text-base md:text-lg font-black py-4 md:py-5 rounded-2xl transition-all duration-300 ${!isClosed && events.latest.link !== '#' ? buttonColor + ' text-white shadow-lg hover:shadow-xl hover:-translate-y-1 hover:scale-[1.02] active:scale-[0.98]' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+                  >
+                    {/* 掃光特效 */}
+                    {!isClosed && events.latest.link !== '#' && (
+                      <div className="absolute top-0 bottom-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12 animate-shimmer"></div>
+                    )}
+                    
+                    {isClosed ? '報名已截止' : (events.latest.link !== '#' ? (
+                      <>
+                        <Icon name="ticket" className="w-5 h-5 relative z-10 group-hover:rotate-12 transition-transform duration-300" />
+                        <span className="relative z-10 tracking-widest">立即報名參加</span>
+                        <Icon name="arrow-right" className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform duration-300" />
+                      </>
+                    ) : '敬請期待')}
                   </a>
                 </div>
               </div>
@@ -476,11 +528,11 @@
       );
     };
 
-    // --- 頁面 4：關於我們 (固定品牌樣式) ---
+    // --- 頁面 4：關於我們 ---
     const AboutTab = ({ system }) => {
       const { about } = system;
-      const fixedThemeColor = "bg-stone-800"; // 固定的背景顏色
-      const fixedTextColor = "text-stone-800"; // 固定的文字顏色
+      const fixedThemeColor = "bg-stone-800"; 
+      const fixedTextColor = "text-stone-800"; 
 
       return (
         <div className="h-full w-full overflow-y-auto bg-gray-50">
@@ -490,7 +542,7 @@
             </div>
             <div className="max-w-3xl mx-auto relative z-10">
               <h2 className="text-3xl md:text-4xl font-black mb-2">關於我們</h2>
-              <p className="text-white/70 text-base md:text-lg">{about.company}</p>
+              <p className="text-white/80 text-base md:text-lg">{about.company}</p>
             </div>
           </header>
 
@@ -535,13 +587,16 @@
 
     // --- 主應用程式 ---
     function App() {
-      const [activeTab, setActiveTab] = useState('overview');
+      const [activeTab, setActiveTab] = useState('about');
       const [fullderData, setFullderData] = useState(null);
       const [currentSystem, setCurrentSystem] = useState(null);
       
       const [isPickerOpen, setIsPickerOpen] = useState(false);
       const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-      
+
+      const [isLoading, setIsLoading] = useState(true);
+      const [loadError, setLoadError] = useState(null);
+
       const [sysFile, setSysFile] = useState(null);
       const [stFile, setStFile] = useState(null);
       const [astFile, setAstFile] = useState(null);
@@ -551,9 +606,6 @@
       const [tempStations, setTempStations] = useState([]);
       const [tempAssets, setTempAssets] = useState([]);
       const [tempEvents, setTempEvents] = useState([]);
-
-      const [isLoading, setIsLoading] = useState(true);
-      const [loadError, setLoadError] = useState(null);
 
       // --- 自動讀取本地 CSV 功能 ---
       useEffect(() => {
@@ -571,7 +623,7 @@
             astParsed.forEach(row => {
               const key = row['鍵值']?.trim();
               const file = row['檔案名稱']?.trim();
-              if (key && file && key !== 'APP_ICON') { // 保護 APP_ICON 不被覆蓋
+              if (key && file && key !== 'APP_ICON') { 
                 currentAssets[key] = file;
               }
             });
@@ -595,7 +647,7 @@
         })
         .catch(err => {
           console.warn("自動抓取失敗:", err);
-          setLoadError('瀏覽器安全限制阻擋了自動讀取本地檔案。請點擊下方按鈕直接手動匯入您的 CSV 檔案。');
+          setLoadError('無法自動讀取本地 CSV 檔案（可能是找不到檔案或瀏覽器安全限制）。請確保檔案存在，或點擊下方按鈕手動匯入。');
           setIsLoading(false);
         });
       }, []); 
@@ -634,7 +686,7 @@
             tempAssets.forEach(row => {
               const key = row['鍵值']?.trim();
               const file = row['檔案名稱']?.trim();
-              if (key && file && key !== 'APP_ICON') { // 保護 APP_ICON 不被覆蓋
+              if (key && file && key !== 'APP_ICON') { 
                 currentAssets[key] = file;
               }
             });
@@ -649,7 +701,6 @@
             setLoadError(null); 
             setIsImportModalOpen(false);
             
-            // 清除暫存狀態
             setSysFile(null); setStFile(null); setAstFile(null); setEvFile(null);
             setTempSystems([]); setTempStations([]); setTempAssets([]); setTempEvents([]);
             
@@ -680,7 +731,7 @@
           {/* 電腦版導覽列 */}
           <nav className="hidden md:flex flex-col w-24 lg:w-28 bg-white border-r border-gray-200 z-40 shadow-sm py-6">
             <div className="flex flex-col items-center mb-8 px-2">
-              <div className="w-16 h-16 mb-1 shrink-0 transition-transform hover:scale-105 rounded-full shadow-sm bg-white overflow-hidden">
+              <div className="w-16 h-16 mb-1 shrink-0 transition-transform hover:scale-105 rounded-full shadow-sm bg-white overflow-hidden border border-gray-100">
                 <SmartImage src={DEFAULT_ASSETS.APP_ICON} alt="Fullder Go Logo" className="w-full h-full object-cover" />
               </div>
             </div>
@@ -694,12 +745,6 @@
                   </button>
                 );
               })}
-
-              {/* 匯入資料按鈕 (電腦版) */}
-              <button onClick={() => setIsImportModalOpen(true)} className="flex flex-col items-center justify-center p-3 mt-auto rounded-2xl text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-all duration-200">
-                <Icon name="upload-cloud" className="w-6 h-6 mb-2 transition-transform hover:-translate-y-1" />
-                <span className="text-[11px] font-bold">匯入資料</span>
-              </button>
             </div>
           </nav>
 
@@ -718,6 +763,7 @@
                  </div>
                  <h2 className="text-2xl font-black text-gray-800 mb-3">資料載入失敗</h2>
                  <p className="text-gray-500 mb-8 max-w-md leading-relaxed">{loadError}</p>
+                 {/* 錯誤畫面的手動匯入按鈕 (作為救援手段保留) */}
                  <button onClick={() => setIsImportModalOpen(true)} className="px-8 py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-colors shadow-xl active:scale-95 flex items-center gap-2">
                     <Icon name="upload-cloud" className="w-5 h-5" />
                     手動匯入 CSV 檔案
@@ -727,7 +773,7 @@
                <>
                 <div className="bg-white md:bg-transparent border-b md:border-b-0 border-gray-100 px-4 md:px-8 py-3 md:py-6 flex items-center justify-between z-40 cursor-pointer active:opacity-70 transition-opacity" onClick={() => setIsPickerOpen(true)}>
                   <div className="flex items-center gap-3">
-                    <div className="md:hidden w-12 h-12 shrink-0 rounded-full shadow-sm bg-white overflow-hidden">
+                    <div className="md:hidden w-12 h-12 shrink-0 rounded-full shadow-sm bg-white overflow-hidden border border-gray-100">
                       <SmartImage src={DEFAULT_ASSETS.APP_ICON} alt="Fullder Go Logo" className="w-full h-full object-cover" />
                     </div>
                     <div>
@@ -740,7 +786,7 @@
                   </div>
                 </div>
                 
-                <div className="flex-1 overflow-hidden relative">
+                <div className="flex-1 overflow-hidden relative bg-white md:bg-transparent">
                   {activeTab === 'overview' && <OverviewTab system={currentSystem} />}
                   {activeTab === 'routes' && <RoutesTab system={currentSystem} />}
                   {activeTab === 'events' && <EventsTab system={currentSystem} />}
@@ -750,7 +796,7 @@
             )}
 
             {/* 手機版導覽列 */}
-            <nav className="md:hidden h-[64px] bg-white border-t border-gray-200 grid grid-cols-5 items-center flex-shrink-0 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] pb-safe">
+            <nav className="md:hidden h-[64px] bg-white border-t border-gray-200 grid grid-cols-4 items-center flex-shrink-0 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] pb-safe">
               {NAV_ITEMS.map((item) => {
                 const isActive = activeTab === item.id;
                 return (
@@ -762,14 +808,6 @@
                   </button>
                 );
               })}
-              
-              {/* 匯入資料按鈕 (手機版) */}
-              <button onClick={() => setIsImportModalOpen(true)} className="flex flex-col items-center justify-center w-full h-full text-gray-400 transition-all duration-200">
-                <div className="relative mb-1 p-1 rounded-full transition-all">
-                  <Icon name="upload-cloud" className="w-6 h-6 transition-transform" />
-                </div>
-                <span className="text-[10px] font-bold">匯入</span>
-              </button>
             </nav>
 
             {/* 路線切換選單 */}
@@ -794,7 +832,7 @@
                           {region.systems.map(sys => (
                             <button 
                               key={sys.id} 
-                              onClick={() => { setCurrentSystem(sys); setIsPickerOpen(false); setActiveTab('routes'); }} 
+                              onClick={() => { setCurrentSystem(sys); setIsPickerOpen(false); setActiveTab('overview'); }} 
                               className={`text-left p-4 md:p-5 rounded-2xl border-2 transition-all duration-200 flex flex-col overflow-hidden relative ${currentSystem.id === sys.id ? `border-transparent ${sys.themeColor} text-white shadow-lg md:scale-105` : 'border-gray-100 bg-white hover:border-gray-300 hover:bg-gray-50 text-gray-800 shadow-sm'}`}
                             >
                               <Icon name={sys.icon || 'footprints'} className={`relative z-10 w-6 h-6 md:w-8 md:h-8 mb-2 md:mb-3 ${currentSystem.id === sys.id ? 'text-white/80' : sys.textColor}`} />
@@ -809,17 +847,17 @@
               </div>
             )}
 
-            {/* 匯入 CSV 專用面板 (加入圖檔設定上傳) */}
+            {/* 匯入 CSV 專用面板 (作為錯誤畫面救援之用) */}
             {isImportModalOpen && (
               <div className="absolute inset-0 z-[60] flex items-center justify-center p-4">
                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsImportModalOpen(false)}></div>
                  <div className="bg-white rounded-3xl relative z-10 w-full max-w-md p-6 shadow-2xl animate-fade-in-scale">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl"><Icon name="database" className="w-6 h-6" /></div>
-                      <h3 className="text-xl md:text-2xl font-black">匯入路線與站點</h3>
+                      <h3 className="text-xl md:text-2xl font-black text-gray-900">匯入路線與站點</h3>
                     </div>
                     
-                    <div className="space-y-3 mb-6">
+                    <div className="space-y-3 mb-6 max-h-[50vh] overflow-y-auto pr-2 hide-scrollbar">
                       {/* 1. 上傳路線系統 */}
                       <label className={`block p-3 border-2 border-dashed rounded-xl transition-colors cursor-pointer ${sysFile ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'}`}>
                         <div className="flex items-center justify-between">
