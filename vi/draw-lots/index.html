@@ -3,23 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>順序抽籤工具</title>
+    <title>Draw Lots 抽籤小工具</title>
     <style>
-        /* ================= 離線版專用 CSS 設計 ================= */
+        /* ================= 極簡現代版 CSS 設計 ================= */
         :root {
-            --primary: #4f46e5;     /* 靛藍色主題 */
-            --primary-dark: #3730a3;
-            --primary-light: #e0e7ff;
-            --bg-color: #f8fafc;
-            --text-main: #1e293b;
-            --text-muted: #64748b;
+            --bg-color: #f4fdf6;      /* 更清爽、更淡的淺綠底色 */
             --card-bg: #ffffff;
+            --text-main: #1e293b;     /* 標題顏色加深 */
+            --text-muted: #737373;
+            --border-color: #e5e5e5;
+            --primary: #10b981;       /* 清新的翡翠綠 */
+            --primary-hover: #059669; /* 深一點的綠色作為 Hover 狀態 */
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --radius-sm: 10px;
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
         }
 
         body {
-            font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "微軟正黑體", sans-serif;
             background-color: var(--bg-color);
-            background-image: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%);
+            background-image: radial-gradient(circle, #dcfce7 2px, transparent 2px); /* 縮小點點並調淡顏色 */
+            background-size: 40px 40px; /* 增加點點之間的間距 */
             margin: 0;
             padding: 20px;
             display: flex;
@@ -27,78 +33,112 @@
             align-items: center;
             min-height: 100vh;
             box-sizing: border-box;
+            color: var(--text-main);
         }
 
         .container {
             width: 100%;
-            max-width: 800px;
+            max-width: 800px; /* 放寬以容納標題列 */
             padding-bottom: 40px;
         }
 
         /* 標題區塊 */
         .header {
-            background-color: var(--card-bg);
-            padding: 20px 30px;
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            border-top: 5px solid var(--primary);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 30px;
+            margin-bottom: 35px;
+            padding: 28px 36px;
+            background-color: var(--card-bg);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
             flex-wrap: wrap;
             gap: 15px;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .header h1 {
             margin: 0;
-            font-size: 28px;
-            color: var(--text-main);
+            font-size: 36px;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
         .header p {
-            margin: 5px 0 0 0;
-            color: var(--text-muted);
-            font-size: 15px;
+            margin: 10px 0 0 0;
+            color: #059669; /* 深綠色副標題 */
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        /* 設定按鈕專屬設計 (仿原圖) */
+        .btn-settings {
+            background-color: #ecfdf5;
+            color: #047857;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-settings:hover {
+            background-color: #d1fae5;
+            transform: translateY(-1px);
         }
 
         /* 按鈕設計 */
         .btn {
-            padding: 12px 24px;
-            border-radius: 10px;
+            padding: 10px 20px;
+            border-radius: 9999px; /* 膠囊形狀 */
             border: none;
-            font-size: 16px;
-            font-weight: bold;
+            font-size: 15px;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 6px;
             font-family: inherit;
         }
 
         .btn-outline {
-            background-color: var(--primary-light);
-            color: var(--primary-dark);
-            border: 1px solid #c7d2fe;
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
         }
-        .btn-outline:hover { background-color: #c7d2fe; }
+        .btn-outline:hover { 
+            background-color: #f5f5f5; 
+            border-color: #d4d4d4;
+        }
 
         .btn-primary {
             background-color: var(--primary);
             color: white;
-            font-size: 22px;
-            padding: 15px 50px;
-            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
-            border-radius: 50px;
+            font-size: 18px;
+            padding: 16px 48px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
         }
         .btn-primary:hover {
-            background-color: var(--primary-dark);
-            transform: translateY(-2px);
+            background-color: var(--primary-hover);
+            transform: scale(1.02);
+        }
+        .btn-primary:active {
+            transform: scale(0.98);
         }
         .btn-primary:disabled {
-            background-color: #94a3b8;
+            background-color: #a3a3a3;
             cursor: not-allowed;
             transform: none;
             box-shadow: none;
@@ -108,7 +148,7 @@
             display: flex;
             gap: 15px;
             justify-content: center;
-            margin-top: 30px;
+            margin-top: 40px;
             margin-bottom: 20px;
         }
 
@@ -118,87 +158,105 @@
         .list-container {
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 12px;
         }
 
         .list-item {
             background: var(--card-bg);
-            border-radius: 15px;
-            padding: 15px 25px;
+            border-radius: var(--radius-md);
+            padding: 16px 20px;
             display: flex;
             align-items: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            transition: transform 0.3s, box-shadow 0.3s;
-            border: 2px solid transparent;
+            border: 1px solid var(--border-color);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .list-item.highlight {
             transform: scale(1.02);
-            box-shadow: 0 10px 25px rgba(79, 70, 229, 0.2);
+            box-shadow: var(--shadow-md);
             border-color: var(--primary);
-            background-color: #f8fafc;
             z-index: 10;
             position: relative;
         }
 
-        /* 名次數字設計 */
+        /* 名次數字設計 (方塊圓角風格) */
         .rank-badge {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
-            font-weight: bold;
-            color: white;
-            margin-right: 20px;
+            font-size: 20px;
+            font-weight: 800;
+            margin-right: 18px;
             flex-shrink: 0;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
-            background: var(--primary); /* 預設顏色 */
+            background: #f5f5f5; 
+            color: #a3a3a3; /* 降低 4 名以後的數字顏色，拉開層次 */
+            border: 1px solid #e5e5e5;
         }
 
-        /* 為前三名加上特別顏色 */
-        .rank-1 .rank-badge { background: linear-gradient(135deg, #fbbf24, #d97706); } /* 金牌 */
-        .rank-2 .rank-badge { background: linear-gradient(135deg, #94a3b8, #475569); } /* 銀牌 */
-        .rank-3 .rank-badge { background: linear-gradient(135deg, #d97706, #92400e); } /* 銅牌 */
+        /* 前三名特別的高亮與陰影設計，讓它們更像獎牌 */
+        .rank-1 .rank-badge { 
+            background: #fffbeb; 
+            color: #d97706; 
+            border-color: #fcd34d; 
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
+        } /* 金 */
+        
+        .rank-2 .rank-badge { 
+            background: #f1f5f9; /* 偏冷色調的金屬灰，區別於一般灰底 */
+            color: #334155; 
+            border-color: #cbd5e1; 
+            box-shadow: 0 2px 8px rgba(100, 116, 139, 0.25);
+        } /* 銀 */
+        
+        .rank-3 .rank-badge { 
+            background: #fff7ed; 
+            color: #c2410c; 
+            border-color: #fdba74; 
+            box-shadow: 0 2px 8px rgba(234, 88, 12, 0.25);
+        } /* 銅 */
 
         .group-name {
-            font-size: 28px;
-            font-weight: bold;
+            font-size: 22px;
+            font-weight: 700;
             color: var(--text-main);
             flex-grow: 1;
-            text-align: center;
-            letter-spacing: 2px;
+            letter-spacing: 0.5px;
         }
 
         .status-icon {
-            font-size: 28px;
-            width: 40px;
+            font-size: 24px;
+            width: 32px;
             text-align: right;
+            opacity: 0.9;
         }
 
         /* 快速跳動的模糊特效 */
         .blur-text {
-            filter: blur(2px);
-            opacity: 0.7;
+            filter: blur(3px);
+            opacity: 0.4;
+            transform: scale(0.95);
+            transition: all 0.1s;
         }
 
         /* 複製結果區塊 */
         .result-container {
             background-color: var(--card-bg);
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            margin-top: 10px;
+            padding: 24px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            margin-top: 20px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            animation: fadeIn 0.5s ease-in-out;
+            gap: 15px;
+            animation: fadeIn 0.5s ease-out forwards;
+            opacity: 0;
         }
         
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
@@ -211,21 +269,21 @@
         .result-header h3 {
             margin: 0;
             font-size: 18px;
-            color: var(--text-main);
+            font-weight: 700;
         }
 
         .result-textarea {
             width: 100%;
-            padding: 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            font-family: inherit;
+            padding: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-family: monospace;
             font-size: 16px;
             color: var(--text-main);
-            background-color: #f8fafc;
-            resize: none; /* 禁止手動調整大小，由 JS 控制 */
+            background-color: #f9fafb;
+            resize: none; 
             box-sizing: border-box;
-            line-height: 1.5;
+            line-height: 1.6;
         }
 
         .result-textarea:focus {
@@ -237,7 +295,8 @@
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px); /* 現代玻璃毛玻璃效果 */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -245,68 +304,78 @@
         }
         .modal-content {
             background: white;
-            padding: 30px;
-            border-radius: 15px;
+            padding: 32px;
+            border-radius: var(--radius-lg);
             width: 90%;
-            max-width: 400px;
-            max-height: 90vh;
+            max-width: 420px;
+            max-height: 85vh;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            box-shadow: var(--shadow-md);
             box-sizing: border-box;
+            border: 1px solid var(--border-color);
         }
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
             flex-shrink: 0;
         }
-        .modal-header h2 { margin: 0; font-size: 22px; }
-        .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #9ca3af; }
+        .modal-header h2 { margin: 0; font-size: 22px; font-weight: 800;}
+        .close-btn { 
+            background: #f5f5f5; 
+            border: none; 
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            font-size: 16px; 
+            cursor: pointer; 
+            color: var(--text-muted); 
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.2s;
+        }
+        .close-btn:hover { background: #e5e5e5; color: var(--text-main); }
 
         .modal-body {
             overflow-y: auto;
-            padding-right: 10px;
+            padding-right: 8px;
             flex-grow: 1;
         }
 
-        /* 捲軸美化 */
         .modal-body::-webkit-scrollbar { width: 6px; }
-        .modal-body::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
+        .modal-body::-webkit-scrollbar-thumb { background-color: #d4d4d4; border-radius: 10px; }
 
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 14px; font-weight: bold;}
+        .input-group { margin-bottom: 16px; }
+        .input-group label { display: block; margin-bottom: 8px; color: var(--text-main); font-size: 14px; font-weight: 600;}
         .input-group input, .input-group select {
             width: 100%;
-            padding: 10px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
+            padding: 14px 16px;
+            border: 2px solid transparent;
+            border-radius: var(--radius-sm);
             box-sizing: border-box;
             font-family: inherit;
             font-size: 15px;
-            background-color: white;
+            background-color: #f5f5f5;
+            transition: all 0.2s;
         }
-        .input-group select {
-            cursor: pointer;
-        }
+        .input-group select { cursor: pointer; }
         .input-group input:focus, .input-group select:focus {
             outline: none;
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px var(--primary-light);
+            background-color: white;
         }
 
         .divider {
             height: 1px;
-            background-color: #e2e8f0;
-            margin: 20px 0;
+            background-color: var(--border-color);
+            margin: 24px 0;
         }
 
         .modal-footer {
-            margin-top: 20px;
+            margin-top: 24px;
             display: flex;
             justify-content: flex-end;
-            gap: 10px;
+            gap: 12px;
             flex-shrink: 0;
         }
     </style>
@@ -317,11 +386,12 @@
         <!-- 頂部標題區 -->
         <header class="header">
             <div>
-                <h1>順序抽籤工具</h1>
+                <h1>🎲 Draw Lots</h1>
                 <p>點擊下方按鈕，隨機決定上場與排列順序！</p>
             </div>
-            <button onclick="toggleSettings()" class="btn btn-outline">
-                ⚙️ 抽籤設定
+            <button onclick="toggleSettings()" class="btn-settings">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                自訂設定
             </button>
         </header>
 
@@ -333,19 +403,19 @@
         <!-- 操作按鈕 -->
         <div class="action-buttons">
             <button id="drawBtn" onclick="startDraw()" class="btn btn-primary">
-                🎲 開始抽籤
+                開始抽籤
             </button>
-            <button id="resetBtn" onclick="resetDraw()" class="btn btn-primary hidden" style="background-color: #f59e0b;">
-                🔄 重新抽籤
+            <button id="resetBtn" onclick="resetDraw()" class="btn btn-primary hidden" style="background-color: #3f3f46;">
+                重新抽籤
             </button>
         </div>
 
-        <!-- 複製結果區塊 (預設隱藏) -->
+        <!-- 複製結果區塊 -->
         <div id="resultContainer" class="result-container hidden">
             <div class="result-header">
                 <h3>📝 抽籤結果</h3>
-                <button onclick="copyResult()" class="btn btn-outline" id="copyBtn" style="font-size: 14px; padding: 8px 16px;">
-                    📋 複製結果
+                <button onclick="copyResult()" class="btn btn-outline" id="copyBtn" style="font-size: 13px; padding: 6px 14px;">
+                    複製結果
                 </button>
             </div>
             <textarea id="resultText" class="result-textarea" readonly></textarea>
@@ -356,14 +426,14 @@
     <div id="settingsModal" class="modal-overlay hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>⚙️ 抽籤設定</h2>
-                <button onclick="toggleSettings()" class="close-btn">✖</button>
+                <h2>設定</h2>
+                <button onclick="toggleSettings()" class="close-btn">✕</button>
             </div>
 
             <div class="modal-body">
-                <!-- 數量設定 (改為下拉選單) -->
+                <!-- 數量設定 -->
                 <div class="input-group">
-                    <label for="itemCount">參與數量:</label>
+                    <label for="itemCount">參與數量</label>
                     <select id="itemCount" onchange="generateSettingsInputs()">
                         <option value="2">2</option>
                         <option value="3">3</option>
@@ -386,16 +456,15 @@
             </div>
 
             <div class="modal-footer">
-                <button onclick="toggleSettings()" class="btn" style="background: #f1f5f9; color: #475569;">取消</button>
-                <button onclick="saveSettings()" class="btn btn-primary" style="padding: 10px 20px; font-size: 16px;">儲存設定</button>
+                <button onclick="toggleSettings()" class="btn btn-outline" style="border: none; box-shadow: none;">取消</button>
+                <button onclick="saveSettings()" class="btn btn-primary" style="padding: 10px 24px; font-size: 15px;">儲存</button>
             </div>
         </div>
     </div>
 
     <script>
-        // 預設名單
         let items = ['組別 1', '組別 2', '組別 3', '組別 4', '組別 5'];
-        let currentFinalOrder = []; // 儲存最後抽出來的順序
+        let currentFinalOrder = []; 
         let isDrawing = false;
         let intervals = []; 
 
@@ -404,7 +473,6 @@
             generateSettingsInputs(); 
         }
 
-        // 渲染列表
         function renderList() {
             const container = document.getElementById('listContainer');
             container.innerHTML = '';
@@ -427,7 +495,6 @@
             });
         }
 
-        // 洗牌演算法
         function shuffleArray(array) {
             let shuffled = [...array];
             for (let i = shuffled.length - 1; i > 0; i--) {
@@ -437,41 +504,34 @@
             return shuffled;
         }
 
-        // 開始抽籤動畫
         function startDraw() {
             if (isDrawing) return;
             isDrawing = true;
 
             const drawBtn = document.getElementById('drawBtn');
             drawBtn.disabled = true;
-            drawBtn.innerHTML = '⏳ 決定順序中...';
+            drawBtn.innerHTML = '抽籤中...';
 
-            // 隱藏複製結果區塊
             document.getElementById('resultContainer').classList.add('hidden');
-
-            // 1. 先決定好最終的順序並存入全域變數
             currentFinalOrder = shuffleArray(items);
 
-            // 2. 清除之前的狀態
             for (let i = 0; i < items.length; i++) {
                 document.getElementById(`row-${i}`).classList.remove('highlight');
                 document.getElementById(`name-${i}`).classList.add('blur-text');
             }
 
-            // 3. 開始跑馬燈
             intervals = [];
             for (let i = 0; i < items.length; i++) {
                 let interval = setInterval(() => {
                     const randomName = items[Math.floor(Math.random() * items.length)];
                     document.getElementById(`name-${i}`).innerText = randomName;
-                }, 80);
+                }, 60); // 稍微加快閃爍速度，增加俐落感
                 intervals.push(interval);
             }
 
-            // 4. 依序定格揭曉結果
             for (let i = 0; i < items.length; i++) {
-                let delay = items.length > 5 ? 600 : 800; 
-                let revealTime = 1000 + (i * delay);
+                let delay = items.length > 5 ? 500 : 700; 
+                let revealTime = 800 + (i * delay);
 
                 setTimeout(() => {
                     clearInterval(intervals[i]);
@@ -483,10 +543,10 @@
                     const rowEl = document.getElementById(`row-${i}`);
                     rowEl.classList.add('highlight');
 
-                    rowEl.style.transform = 'scale(1.05)';
-                    setTimeout(() => { rowEl.style.transform = ''; }, 200);
+                    // 放大特效
+                    rowEl.style.transform = 'scale(1.03)';
+                    setTimeout(() => { rowEl.style.transform = 'scale(1.01)'; }, 150);
 
-                    // 當最後一個也揭曉完畢時
                     if (i === items.length - 1) {
                         finishDraw();
                     }
@@ -494,7 +554,6 @@
             }
         }
 
-        // 抽籤結束的處理
         function finishDraw() {
             isDrawing = false;
             const drawBtn = document.getElementById('drawBtn');
@@ -503,55 +562,44 @@
             drawBtn.classList.add('hidden');
             resetBtn.classList.remove('hidden');
             drawBtn.disabled = false;
-            drawBtn.innerHTML = '🎲 開始抽籤';
+            drawBtn.innerHTML = '開始抽籤';
 
-            // 產生並顯示文字結果
             showTextResult();
         }
 
-        // 顯示文字結果區塊
         function showTextResult() {
             const resultContainer = document.getElementById('resultContainer');
             const resultText = document.getElementById('resultText');
             
-            // 組合純文字內容
             let textOutput = '';
             currentFinalOrder.forEach((item, index) => {
                 textOutput += `${index + 1}. ${item}\n`;
             });
             
-            // 填入 textarea 並根據行數自動調整高度
             resultText.value = textOutput.trim();
             resultText.rows = currentFinalOrder.length;
             
-            // 顯示區塊並滑動到最底下
             resultContainer.classList.remove('hidden');
             setTimeout(() => {
                 window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
             }, 100);
         }
 
-        // 複製結果到剪貼簿
         function copyResult() {
             const resultText = document.getElementById('resultText');
             const copyBtn = document.getElementById('copyBtn');
             
-            // 選取文字並複製 (相容 iFrame 環境)
             resultText.select();
-            resultText.setSelectionRange(0, 99999); // 針對手機的相容性
+            resultText.setSelectionRange(0, 99999); 
             document.execCommand("copy");
-            
-            // 取消選取狀態
             window.getSelection().removeAllRanges();
 
-            // 變更按鈕文字給予回饋
             const originalHTML = copyBtn.innerHTML;
-            copyBtn.innerHTML = '✅ 已複製！';
-            copyBtn.style.backgroundColor = '#10b981'; /* 綠色回饋 */
+            copyBtn.innerHTML = '✓ 已複製';
+            copyBtn.style.backgroundColor = 'var(--primary)';
             copyBtn.style.color = 'white';
-            copyBtn.style.borderColor = '#10b981';
+            copyBtn.style.borderColor = 'var(--primary)';
             
-            // 兩秒後恢復原狀
             setTimeout(() => {
                 copyBtn.innerHTML = originalHTML;
                 copyBtn.style.backgroundColor = '';
@@ -560,28 +608,25 @@
             }, 2000);
         }
 
-        // 重新抽籤 (蓋牌)
         function resetDraw() {
             const drawBtn = document.getElementById('drawBtn');
             const resetBtn = document.getElementById('resetBtn');
 
             resetBtn.classList.add('hidden');
             drawBtn.classList.remove('hidden');
-            
-            // 隱藏複製結果區塊
             document.getElementById('resultContainer').classList.add('hidden');
 
             for (let i = 0; i < items.length; i++) {
-                document.getElementById(`row-${i}`).classList.remove('highlight');
+                let rowEl = document.getElementById(`row-${i}`);
+                rowEl.classList.remove('highlight');
+                rowEl.style.transform = ''; // 重置縮放
                 document.getElementById(`name-${i}`).innerText = '？？？';
                 document.getElementById(`name-${i}`).classList.remove('blur-text');
             }
             
-            // 滾動回最上方
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // --- 以下為設定 Modal 邏輯 ---
         function toggleSettings() {
             if (isDrawing) return;
 
