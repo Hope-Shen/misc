@@ -3,206 +3,431 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小組照片抽籤系統</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>順序抽籤工具</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
-        
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            background-color: #f3f4f6;
-            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
-            background-size: 20px 20px;
+        /* ================= 離線版專用 CSS 設計 ================= */
+        :root {
+            --primary: #4f46e5;     /* 靛藍色主題 */
+            --primary-dark: #3730a3;
+            --primary-light: #e0e7ff;
+            --bg-color: #f8fafc;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --card-bg: #ffffff;
         }
 
-        /* 3D 翻牌效果 CSS */
-        .flip-container {
-            perspective: 1000px;
-        }
-        .flipper {
-            transition: 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
-            transform-style: preserve-3d;
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-        .front, .back {
-            backface-visibility: hidden;
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border-radius: 1rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-        .front {
-            z-index: 2;
-            transform: rotateY(0deg);
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        body {
+            font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif;
+            background-color: var(--bg-color);
+            background-image: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%);
+            margin: 0;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            color: white;
+            min-height: 100vh;
+            box-sizing: border-box;
         }
-        .back {
-            transform: rotateY(180deg);
-            background-color: white;
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            padding-bottom: 40px;
+        }
+
+        /* 標題區塊 */
+        .header {
+            background-color: var(--card-bg);
+            padding: 20px 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border-top: 5px solid var(--primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            color: var(--text-main);
+        }
+
+        .header p {
+            margin: 5px 0 0 0;
+            color: var(--text-muted);
+            font-size: 15px;
+        }
+
+        /* 按鈕設計 */
+        .btn {
+            padding: 12px 24px;
+            border-radius: 10px;
+            border: none;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: inherit;
+        }
+
+        .btn-outline {
+            background-color: var(--primary-light);
+            color: var(--primary-dark);
+            border: 1px solid #c7d2fe;
+        }
+        .btn-outline:hover { background-color: #c7d2fe; }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            font-size: 22px;
+            padding: 15px 50px;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+            border-radius: 50px;
+        }
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+        .btn-primary:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            margin-bottom: 20px;
+        }
+
+        .hidden { display: none !important; }
+
+        /* 順序列表區塊 */
+        .list-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .list-item {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 15px 25px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .list-item.highlight {
+            transform: scale(1.02);
+            box-shadow: 0 10px 25px rgba(79, 70, 229, 0.2);
+            border-color: var(--primary);
+            background-color: #f8fafc;
+            z-index: 10;
+            position: relative;
+        }
+
+        /* 名次數字設計 */
+        .rank-badge {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            margin-right: 20px;
+            flex-shrink: 0;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+            background: var(--primary); /* 預設顏色 */
         }
-        .flip-container.flipped .flipper {
-            transform: rotateY(180deg);
+
+        /* 為前三名加上特別顏色 */
+        .rank-1 .rank-badge { background: linear-gradient(135deg, #fbbf24, #d97706); } /* 金牌 */
+        .rank-2 .rank-badge { background: linear-gradient(135deg, #94a3b8, #475569); } /* 銀牌 */
+        .rank-3 .rank-badge { background: linear-gradient(135deg, #d97706, #92400e); } /* 銅牌 */
+
+        .group-name {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--text-main);
+            flex-grow: 1;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        .status-icon {
+            font-size: 28px;
+            width: 40px;
+            text-align: right;
+        }
+
+        /* 快速跳動的模糊特效 */
+        .blur-text {
+            filter: blur(2px);
+            opacity: 0.7;
+        }
+
+        /* 複製結果區塊 */
+        .result-container {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            animation: fadeIn 0.5s ease-in-out;
         }
         
-        .back img {
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .result-header h3 {
+            margin: 0;
+            font-size: 18px;
+            color: var(--text-main);
+        }
+
+        .result-textarea {
             width: 100%;
-            height: 100%;
-            object-fit: cover;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 16px;
+            color: var(--text-main);
+            background-color: #f8fafc;
+            resize: none; /* 禁止手動調整大小，由 JS 控制 */
+            box-sizing: border-box;
+            line-height: 1.5;
+        }
+
+        .result-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* 設定彈跳視窗 Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            box-sizing: border-box;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+        .modal-header h2 { margin: 0; font-size: 22px; }
+        .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #9ca3af; }
+
+        .modal-body {
+            overflow-y: auto;
+            padding-right: 10px;
+            flex-grow: 1;
+        }
+
+        /* 捲軸美化 */
+        .modal-body::-webkit-scrollbar { width: 6px; }
+        .modal-body::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
+
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 14px; font-weight: bold;}
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 15px;
+            background-color: white;
+        }
+        .input-group select {
+            cursor: pointer;
+        }
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
+        }
+
+        .divider {
+            height: 1px;
+            background-color: #e2e8f0;
+            margin: 20px 0;
+        }
+
+        .modal-footer {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-shrink: 0;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center py-10 px-4">
+<body>
 
-    <!-- 頂部標題與控制區 -->
-    <header class="w-full max-w-6xl flex justify-between items-center mb-10 bg-white p-6 rounded-2xl shadow-sm">
-        <div>
-            <h1 class="text-3xl font-black text-gray-800 tracking-wider">🎲 小組照片抽籤系統</h1>
-            <p class="text-gray-500 mt-2 text-sm">點擊下方按鈕，為各組隨機分配一張專屬照片</p>
+    <div class="container">
+        <!-- 頂部標題區 -->
+        <header class="header">
+            <div>
+                <h1>順序抽籤工具</h1>
+                <p>點擊下方按鈕，隨機決定上場與排列順序！</p>
+            </div>
+            <button onclick="toggleSettings()" class="btn btn-outline">
+                ⚙️ 抽籤設定
+            </button>
+        </header>
+
+        <!-- 順序列表區 -->
+        <main class="list-container" id="listContainer">
+            <!-- 內容由 JS 動態生成 -->
+        </main>
+
+        <!-- 操作按鈕 -->
+        <div class="action-buttons">
+            <button id="drawBtn" onclick="startDraw()" class="btn btn-primary">
+                🎲 開始抽籤
+            </button>
+            <button id="resetBtn" onclick="resetDraw()" class="btn btn-primary hidden" style="background-color: #f59e0b;">
+                🔄 重新抽籤
+            </button>
         </div>
-        <button onclick="toggleSettings()" class="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            自訂設定
-        </button>
-    </header>
 
-    <!-- 抽籤卡片顯示區 -->
-    <main class="w-full max-w-6xl grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-12" id="cardContainer">
-        <!-- 卡片將由 JavaScript 動態生成 -->
-    </main>
-
-    <!-- 操作按鈕 -->
-    <div class="flex gap-4">
-        <button id="drawBtn" onclick="startDraw()" class="px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xl font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all">
-            開始抽籤
-        </button>
-        <button id="resetBtn" onclick="resetDraw()" class="hidden px-10 py-4 bg-white hover:bg-gray-50 text-indigo-600 text-xl font-bold rounded-xl shadow border border-indigo-100 transition-all">
-            重新配對
-        </button>
+        <!-- 複製結果區塊 (預設隱藏) -->
+        <div id="resultContainer" class="result-container hidden">
+            <div class="result-header">
+                <h3>📝 抽籤結果</h3>
+                <button onclick="copyResult()" class="btn btn-outline" id="copyBtn" style="font-size: 14px; padding: 8px 16px;">
+                    📋 複製結果
+                </button>
+            </div>
+            <textarea id="resultText" class="result-textarea" readonly></textarea>
+        </div>
     </div>
 
-    <!-- 設定 Modal (預設隱藏) -->
-    <div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-8">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">設定組別與照片</h2>
-            
-            <!-- 新增：組別數量設定 -->
-            <div class="mb-8 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                <label class="block text-base font-semibold text-gray-700 mb-2">請選擇組別數量 (2 ~ 10 組)</label>
-                <select id="groupCountSelect" onchange="updateGroupCount()" class="w-full md:w-1/3 border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2 text-base bg-white">
-                    <option value="2">2 組</option>
-                    <option value="3">3 組</option>
-                    <option value="4">4 組</option>
-                    <option value="5" selected>5 組</option>
-                    <option value="6">6 組</option>
-                    <option value="7">7 組</option>
-                    <option value="8">8 組</option>
-                    <option value="9">9 組</option>
-                    <option value="10">10 組</option>
-                </select>
+    <!-- 設定 Modal -->
+    <div id="settingsModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ 抽籤設定</h2>
+                <button onclick="toggleSettings()" class="close-btn">✖</button>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- 組別設定 -->
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">組別名稱</h3>
-                    <div id="groupInputs" class="space-y-3">
-                        <!-- 由 JS 產生 5 個輸入框 -->
-                    </div>
+            <div class="modal-body">
+                <!-- 數量設定 (改為下拉選單) -->
+                <div class="input-group">
+                    <label for="itemCount">參與數量:</label>
+                    <select id="itemCount" onchange="generateSettingsInputs()">
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5" selected>5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                    </select>
                 </div>
-                
-                <!-- 照片設定 (已修改為上傳按鈕) -->
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">自訂照片上傳</h3>
-                    <div id="photoInputs" class="space-y-3">
-                        <!-- 由 JS 產生 5 個上傳元件 -->
-                    </div>
-                    <p class="text-xs text-gray-500 mt-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                        💡 <b>提示：</b>點擊按鈕可直接從手機相簿或電腦選擇照片。建議使用長寬比例相近的照片，顯示效果較佳。
-                    </p>
+
+                <div class="divider"></div>
+
+                <!-- 名稱設定 -->
+                <div id="groupInputs">
+                    <!-- 由 JS 產生輸入框 -->
                 </div>
             </div>
 
-            <div class="mt-8 flex justify-end gap-3 border-t pt-6">
-                <button onclick="toggleSettings()" class="px-5 py-2 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors">取消</button>
-                <button onclick="saveSettings()" class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors">儲存並套用</button>
+            <div class="modal-footer">
+                <button onclick="toggleSettings()" class="btn" style="background: #f1f5f9; color: #475569;">取消</button>
+                <button onclick="saveSettings()" class="btn btn-primary" style="padding: 10px 20px; font-size: 16px;">儲存設定</button>
             </div>
         </div>
     </div>
 
     <script>
-        // 預設資料：5 個組別，照片改為空陣列
-        let groupCount = 5;
-        let groups = ['第一組', '第二組', '第三組', '第四組', '第五組'];
-        let photos = ['', '', '', '', '']; // 預設沒有照片
-        
-        // 預設的小圖片圖示 (SVG Data URI)
-        const placeholderIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'/%3E%3C/svg%3E";
+        // 預設名單
+        let items = ['組別 1', '組別 2', '組別 3', '組別 4', '組別 5'];
+        let currentFinalOrder = []; // 儲存最後抽出來的順序
+        let isDrawing = false;
+        let intervals = []; 
 
-        let isDrawn = false;
-
-        // 初始化頁面
         function init() {
-            renderCards();
-            renderSettings();
-            preloadImages();
+            renderList();
+            generateSettingsInputs(); 
         }
 
-        // 預載圖片以確保翻牌時不延遲
-        function preloadImages() {
-            photos.forEach(url => {
-                if (url) {
-                    const img = new Image();
-                    img.src = url;
-                }
-            });
-        }
-
-        // 渲染卡片
-        function renderCards() {
-            const container = document.getElementById('cardContainer');
+        // 渲染列表
+        function renderList() {
+            const container = document.getElementById('listContainer');
             container.innerHTML = '';
-            
-            groups.forEach((groupName, index) => {
-                const cardHTML = `
-                    <div class="flip-container h-80 w-full" id="card-${index}">
-                        <div class="flipper">
-                            <div class="front">
-                                <div class="text-4xl mb-4 opacity-50">❓</div>
-                                <h3 class="text-2xl font-bold text-center px-2">${groupName}</h3>
-                                <p class="text-sm mt-2 opacity-80">等待抽籤...</p>
-                            </div>
-                            <div class="back relative group">
-                                <img src="" alt="Assigned Photo" id="photo-${index}" onerror="this.src='https://via.placeholder.com/600x800?text=圖片載入失敗'">
-                                <!-- 遮罩與組別名稱 (覆蓋在圖片上方) -->
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                <div class="absolute bottom-0 left-0 w-full p-4 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-                                    <span class="inline-block px-3 py-1 bg-white/20 backdrop-blur-md text-white font-bold rounded-lg border border-white/30 shadow-lg">
-                                        🎉 ${groupName}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
+
+            items.forEach((item, i) => {
+                let rankLabel = i + 1;
+                let medal = '';
+                if (i === 0) medal = '🥇';
+                if (i === 1) medal = '🥈';
+                if (i === 2) medal = '🥉';
+
+                const itemHTML = `
+                    <div class="list-item rank-${i + 1}" id="row-${i}">
+                        <div class="rank-badge">${rankLabel}</div>
+                        <div class="group-name" id="name-${i}">？？？</div>
+                        <div class="status-icon" id="icon-${i}">${medal}</div>
                     </div>
                 `;
-                container.insertAdjacentHTML('beforeend', cardHTML);
+                container.insertAdjacentHTML('beforeend', itemHTML);
             });
         }
 
-        // Fisher-Yates 洗牌演算法 (隨機打亂陣列)
+        // 洗牌演算法
         function shuffleArray(array) {
             let shuffled = [...array];
             for (let i = shuffled.length - 1; i > 0; i--) {
@@ -212,193 +437,202 @@
             return shuffled;
         }
 
-        // 開始抽籤
+        // 開始抽籤動畫
         function startDraw() {
-            if (isDrawn) return;
-            
+            if (isDrawing) return;
+            isDrawing = true;
+
             const drawBtn = document.getElementById('drawBtn');
-            const resetBtn = document.getElementById('resetBtn');
-            
             drawBtn.disabled = true;
-            drawBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            drawBtn.innerText = '抽籤中...';
+            drawBtn.innerHTML = '⏳ 決定順序中...';
 
-            // 打亂照片陣列
-            const shuffledPhotos = shuffleArray(photos);
+            // 隱藏複製結果區塊
+            document.getElementById('resultContainer').classList.add('hidden');
 
-            // 依序翻開卡片
-            groups.forEach((_, index) => {
+            // 1. 先決定好最終的順序並存入全域變數
+            currentFinalOrder = shuffleArray(items);
+
+            // 2. 清除之前的狀態
+            for (let i = 0; i < items.length; i++) {
+                document.getElementById(`row-${i}`).classList.remove('highlight');
+                document.getElementById(`name-${i}`).classList.add('blur-text');
+            }
+
+            // 3. 開始跑馬燈
+            intervals = [];
+            for (let i = 0; i < items.length; i++) {
+                let interval = setInterval(() => {
+                    const randomName = items[Math.floor(Math.random() * items.length)];
+                    document.getElementById(`name-${i}`).innerText = randomName;
+                }, 80);
+                intervals.push(interval);
+            }
+
+            // 4. 依序定格揭曉結果
+            for (let i = 0; i < items.length; i++) {
+                let delay = items.length > 5 ? 600 : 800; 
+                let revealTime = 1000 + (i * delay);
+
                 setTimeout(() => {
-                    // 將隨機分配的照片設定到卡片背面，如果還沒上傳，顯示一張提示圖
-                    const photoSrc = shuffledPhotos[index] || 'https://placehold.co/600x800/e2e8f0/64748b?text=尚未上傳照片';
-                    document.getElementById(`photo-${index}`).src = photoSrc;
-                    // 觸發翻牌動畫
-                    document.getElementById(`card-${index}`).classList.add('flipped');
-                    
-                    // 當最後一張翻完時，更新按鈕狀態
-                    if (index === groups.length - 1) {
-                        setTimeout(() => {
-                            isDrawn = true;
-                            drawBtn.classList.add('hidden');
-                            resetBtn.classList.remove('hidden');
-                            drawBtn.disabled = false;
-                            drawBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                            drawBtn.innerText = '開始抽籤';
-                        }, 600);
+                    clearInterval(intervals[i]);
+
+                    const nameEl = document.getElementById(`name-${i}`);
+                    nameEl.innerText = currentFinalOrder[i];
+                    nameEl.classList.remove('blur-text');
+
+                    const rowEl = document.getElementById(`row-${i}`);
+                    rowEl.classList.add('highlight');
+
+                    rowEl.style.transform = 'scale(1.05)';
+                    setTimeout(() => { rowEl.style.transform = ''; }, 200);
+
+                    // 當最後一個也揭曉完畢時
+                    if (i === items.length - 1) {
+                        finishDraw();
                     }
-                }, index * 400); // 每張卡片間隔 400 毫秒翻開
-            });
+                }, revealTime);
+            }
         }
 
-        // 重新抽籤 (重置)
-        function resetDraw() {
-            groups.forEach((_, index) => {
-                document.getElementById(`card-${index}`).classList.remove('flipped');
-            });
-
+        // 抽籤結束的處理
+        function finishDraw() {
+            isDrawing = false;
             const drawBtn = document.getElementById('drawBtn');
             const resetBtn = document.getElementById('resetBtn');
 
-            // 等待翻牌動畫結束後再清除圖片
-            setTimeout(() => {
-                groups.forEach((_, index) => {
-                    document.getElementById(`photo-${index}`).src = '';
-                });
-                isDrawn = false;
-                resetBtn.classList.add('hidden');
-                drawBtn.classList.remove('hidden');
-            }, 600);
+            drawBtn.classList.add('hidden');
+            resetBtn.classList.remove('hidden');
+            drawBtn.disabled = false;
+            drawBtn.innerHTML = '🎲 開始抽籤';
+
+            // 產生並顯示文字結果
+            showTextResult();
         }
 
-        // 開關設定 Modal
+        // 顯示文字結果區塊
+        function showTextResult() {
+            const resultContainer = document.getElementById('resultContainer');
+            const resultText = document.getElementById('resultText');
+            
+            // 組合純文字內容
+            let textOutput = '';
+            currentFinalOrder.forEach((item, index) => {
+                textOutput += `${index + 1}. ${item}\n`;
+            });
+            
+            // 填入 textarea 並根據行數自動調整高度
+            resultText.value = textOutput.trim();
+            resultText.rows = currentFinalOrder.length;
+            
+            // 顯示區塊並滑動到最底下
+            resultContainer.classList.remove('hidden');
+            setTimeout(() => {
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            }, 100);
+        }
+
+        // 複製結果到剪貼簿
+        function copyResult() {
+            const resultText = document.getElementById('resultText');
+            const copyBtn = document.getElementById('copyBtn');
+            
+            // 選取文字並複製 (相容 iFrame 環境)
+            resultText.select();
+            resultText.setSelectionRange(0, 99999); // 針對手機的相容性
+            document.execCommand("copy");
+            
+            // 取消選取狀態
+            window.getSelection().removeAllRanges();
+
+            // 變更按鈕文字給予回饋
+            const originalHTML = copyBtn.innerHTML;
+            copyBtn.innerHTML = '✅ 已複製！';
+            copyBtn.style.backgroundColor = '#10b981'; /* 綠色回饋 */
+            copyBtn.style.color = 'white';
+            copyBtn.style.borderColor = '#10b981';
+            
+            // 兩秒後恢復原狀
+            setTimeout(() => {
+                copyBtn.innerHTML = originalHTML;
+                copyBtn.style.backgroundColor = '';
+                copyBtn.style.color = '';
+                copyBtn.style.borderColor = '';
+            }, 2000);
+        }
+
+        // 重新抽籤 (蓋牌)
+        function resetDraw() {
+            const drawBtn = document.getElementById('drawBtn');
+            const resetBtn = document.getElementById('resetBtn');
+
+            resetBtn.classList.add('hidden');
+            drawBtn.classList.remove('hidden');
+            
+            // 隱藏複製結果區塊
+            document.getElementById('resultContainer').classList.add('hidden');
+
+            for (let i = 0; i < items.length; i++) {
+                document.getElementById(`row-${i}`).classList.remove('highlight');
+                document.getElementById(`name-${i}`).innerText = '？？？';
+                document.getElementById(`name-${i}`).classList.remove('blur-text');
+            }
+            
+            // 滾動回最上方
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // --- 以下為設定 Modal 邏輯 ---
         function toggleSettings() {
+            if (isDrawing) return;
+
             const modal = document.getElementById('settingsModal');
             if (modal.classList.contains('hidden')) {
-                renderSettings(); // 打開時重新載入最新設定值
+                document.getElementById('itemCount').value = items.length;
+                generateSettingsInputs();
                 modal.classList.remove('hidden');
             } else {
                 modal.classList.add('hidden');
             }
         }
 
-        // 當使用者改變組別數量時觸發
-        function updateGroupCount() {
-            // 先儲存目前已經輸入的資料，避免切換數量時被清空
-            syncSettingsToState();
-
-            const newCount = parseInt(document.getElementById('groupCountSelect').value);
-            
-            if (newCount > groupCount) {
-                // 如果變多，增加預設組別名稱與空照片
-                for (let i = groupCount; i < newCount; i++) {
-                    groups.push(`第 ${i + 1} 組`);
-                    photos.push('');
-                }
-            } else if (newCount < groupCount) {
-                // 如果變少，截斷陣列
-                groups = groups.slice(0, newCount);
-                photos = photos.slice(0, newCount);
-            }
-            
-            groupCount = newCount;
-            renderSettings(); // 重新渲染設定欄位
-        }
-
-        // 將設定視窗內的輸入值同步到陣列中
-        function syncSettingsToState() {
-            for (let i = 0; i < groupCount; i++) {
-                const groupInput = document.getElementById(`input-group-${i}`);
-                const previewPhoto = document.getElementById(`preview-photo-${i}`);
-                
-                if (groupInput) {
-                    groups[i] = groupInput.value.trim() || `第 ${i + 1} 組`;
-                }
-                
-                if (previewPhoto) {
-                    const newPhotoSrc = previewPhoto.src;
-                    photos[i] = newPhotoSrc.includes('data:image/svg+xml') ? '' : newPhotoSrc;
-                }
-            }
-        }
-
-        // 渲染設定欄位
-        function renderSettings() {
-            // 確保數量下拉選單與變數一致
-            const selectEl = document.getElementById('groupCountSelect');
-            if (selectEl) selectEl.value = groupCount;
-
+        function generateSettingsInputs() {
             const groupInputs = document.getElementById('groupInputs');
-            const photoInputs = document.getElementById('photoInputs');
-            
+            const countInput = document.getElementById('itemCount');
+            let count = parseInt(countInput.value);
+
             groupInputs.innerHTML = '';
-            photoInputs.innerHTML = '';
-
-            for (let i = 0; i < groupCount; i++) {
-                // 組別輸入框
+            for (let i = 0; i < count; i++) {
+                let defaultName = items[i] !== undefined ? items[i] : `組別 ${i + 1}`;
                 groupInputs.innerHTML += `
-                    <div>
-                        <label class="block text-sm text-gray-500 mb-1">第 ${i + 1} 組</label>
-                        <input type="text" id="input-group-${i}" value="${groups[i]}" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border p-2 text-sm">
-                    </div>
-                `;
-                
-                // 照片上傳區塊 (包含預覽與上傳按鈕)
-                // 如果沒有照片，顯示預設圖示並調整樣式
-                const imgSrc = photos[i] || placeholderIcon;
-                const imgClass = photos[i] ? 'w-full h-full object-cover' : 'w-full h-full object-cover p-2 opacity-50';
-
-                photoInputs.innerHTML += `
-                    <div>
-                        <label class="block text-sm text-gray-500 mb-1">照片 ${i + 1}</label>
-                        <div class="flex items-center gap-3">
-                            <!-- 小縮圖預覽 -->
-                            <div class="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-gray-200 flex items-center justify-center">
-                                <img id="preview-photo-${i}" src="${imgSrc}" class="${imgClass}">
-                            </div>
-                            <!-- 隱藏的檔案輸入框與觸發的 Label 按鈕 -->
-                            <div class="flex-1">
-                                <input type="file" id="input-file-${i}" accept="image/*" class="hidden" onchange="handleFileUpload(event, ${i})">
-                                <label for="input-file-${i}" class="cursor-pointer flex items-center justify-center w-full px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                                    選擇相簿/檔案
-                                </label>
-                            </div>
-                        </div>
+                    <div class="input-group">
+                        <label>名單 ${i + 1}</label>
+                        <input type="text" id="input-group-${i}" value="${defaultName}" placeholder="請輸入名稱">
                     </div>
                 `;
             }
         }
 
-        // 處理照片上傳事件
-        function handleFileUpload(event, index) {
-            const file = event.target.files[0];
-            if (file) {
-                // 使用 FileReader 讀取圖片檔案，轉換成 Base64 格式
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    // 將讀取完畢的圖片內容替換到預覽縮圖的 src 屬性上
-                    const img = document.getElementById(`preview-photo-${index}`);
-                    img.src = e.target.result;
-                    img.className = 'w-full h-full object-cover'; // 移除預設圖示的邊距與透明度
-                };
-                reader.readAsDataURL(file);
-            }
-        }
-
-        // 儲存設定
         function saveSettings() {
-            // 同步最新的輸入狀態
-            syncSettingsToState();
+            let count = parseInt(document.getElementById('itemCount').value);
+            let newItems = [];
             
+            for (let i = 0; i < count; i++) {
+                const inputEl = document.getElementById(`input-group-${i}`);
+                const newName = inputEl.value.trim();
+                newItems.push(newName || `組別 ${i + 1}`);
+            }
+
+            items = newItems;
             toggleSettings();
-            resetDraw();
-            // 短暫延遲確保 reset 動畫不受影響，然後重新渲染卡片名稱
-            setTimeout(() => {
-                renderCards();
-                preloadImages(); // 重新預載更新後的圖片
-            }, 600);
+            renderList();
+            
+            const drawBtn = document.getElementById('drawBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            resetBtn.classList.add('hidden');
+            drawBtn.classList.remove('hidden');
+            document.getElementById('resultContainer').classList.add('hidden');
         }
 
-        // 啟動程式
         window.onload = init;
     </script>
 </body>
